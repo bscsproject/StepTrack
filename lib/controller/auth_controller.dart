@@ -7,6 +7,7 @@ import 'package:step_track/model/user_model.dart';
 import 'package:step_track/services/auth_service.dart';
 import 'package:step_track/views/auth/create_profile_screen.dart';
 import 'package:step_track/views/auth/welcome_user_screen.dart';
+import 'package:step_track/views/home/home_screen.dart';
 import 'package:step_track/views/onboardindscreens/all_set_onobarding_scren.dart';
 import 'package:step_track/views/onboardindscreens/autostart_onboarding_screen.dart';
 import 'package:step_track/views/onboardindscreens/battery_optimization.dart';

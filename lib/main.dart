@@ -1,20 +1,45 @@
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+
 import 'package:step_track/core/app_theme.dart';
-import 'package:step_track/views/auth/welcome_auth_screen.dart';
+
+import 'package:step_track/views/splash_screen.dart';
+
 import 'firebase_options.dart';
 
-
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  await Hive.initFlutter();
-  await Hive.openBox('steptrack_auth_box');
-  runApp(const StepTrackApp());
+
+  try {
+    // 1. Initialize Firebase
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+
+    // 2. Initialize Hive
+    await Hive.initFlutter();
+
+    // 3. Open authentication box
+    if (!Hive.isBoxOpen('steptrack_auth_box')) {
+      await Hive.openBox('steptrack_auth_box');
+    }
+
+    // 4. Run application
+    runApp(const StepTrackApp());
+
+  } catch (error, stackTrace) {
+    debugPrint('STEPTRACK STARTUP ERROR: $error');
+    debugPrintStack(stackTrace: stackTrace);
+
+    runApp(
+      StartupErrorApp(error: error.toString()),
+    );
+  }
 }
 
 class StepTrackApp extends StatelessWidget {
@@ -25,42 +50,42 @@ class StepTrackApp extends StatelessWidget {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'StepTrack',
+
       theme: AppTheme.darkTheme,
-      // Pehle SplashScreen rakhni ho to SplashScreen() bhi laga sakte hain;
-      // abhi direct WelcomeAuthScreen set ki hai jahan se Skip / Sign In / Sign up chalega:
-      home: WelcomeAuthScreen(),
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.dark,
+
+      home: SplashScreen(),
     );
   }
 }
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class StartupErrorApp extends StatelessWidget {
+  final String error;
+
+  const StartupErrorApp({
+    super.key,
+    required this.error,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset(
-                'app_mockup/steptrack_logo.png',
-                width: 130,
-                height: 130,
-                fit: BoxFit.contain,
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF0D1020),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'StepTrack could not start.\n\n$error',
+              style: const TextStyle(
+                color: Color(0xFFF7F7FF),
+                fontSize: 15,
               ),
-              const SizedBox(height: 20),
-              Text(
-                'StepTrack',
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Track Your Steps. Reach Your Goals.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       ),
