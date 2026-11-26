@@ -1,11 +1,19 @@
-
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:step_track/core/app_theme.dart';
+import 'package:step_track/views/auth/welcome_auth_screen.dart';
+import 'firebase_options.dart';
 
 
-
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await Hive.initFlutter();
+  await Hive.openBox('steptrack_auth_box');
   runApp(const StepTrackApp());
 }
 
@@ -14,12 +22,14 @@ class StepTrackApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-  debugShowCheckedModeBanner: false,
-  title: 'StepTrack',
-  theme: AppTheme.darkTheme,
-  home: const HomeScreen(),
-);
+    return GetMaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'StepTrack',
+      theme: AppTheme.darkTheme,
+      // Pehle SplashScreen rakhni ho to SplashScreen() bhi laga sakte hain;
+      // abhi direct WelcomeAuthScreen set ki hai jahan se Skip / Sign In / Sign up chalega:
+      home: WelcomeAuthScreen(),
+    );
   }
 }
 
