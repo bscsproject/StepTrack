@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -59,5 +56,15 @@ class DefaultFirebaseOptions {
     projectId: 'steptrack-522a7',
     databaseURL: 'https://steptrack-522a7-default-rtdb.firebaseio.com',
     storageBucket: 'steptrack-522a7.firebasestorage.app',
+  );
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyBZJCiqsHRuDejAgJMjUtIR1KJRj5W-_ng',
+    appId: '1:1033608662540:web:1f39b785c82f32fccc2829',
+    messagingSenderId: '1033608662540',
+    projectId: 'steptrack-522a7',
+    authDomain: 'steptrack-522a7.firebaseapp.com',
+    databaseURL: 'https://steptrack-522a7-default-rtdb.firebaseio.com',
+    storageBucket: 'steptrack-522a7.firebasestorage.app',
+    measurementId: 'G-YTMBBQGF3V',
   );
 }
