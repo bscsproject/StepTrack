@@ -6,13 +6,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:step_track/model/step_track_hub_model.dart';
@@ -57,8 +55,6 @@ class StepTrackHubController extends GetxController {
 
   StreamSubscription<User?>? _authSub;
   StreamSubscription<DocumentSnapshot>? _userDocSub;
-  StreamSubscription<StepCount>? _pedometerSub;
-  int? _lastSensorBaseline;
 
   @override
   void onInit() {
@@ -68,14 +64,12 @@ class StepTrackHubController extends GetxController {
       _bindUser(user);
     });
     _bindUser(_auth.currentUser);
-    unawaited(_startLivePedometer());
   }
 
   @override
   void onClose() {
     _authSub?.cancel();
     _userDocSub?.cancel();
-    _pedometerSub?.cancel();
     super.onClose();
   }
 
@@ -111,7 +105,7 @@ class StepTrackHubController extends GetxController {
 
   void _bindUser(User? user) {
     _userDocSub?.cancel();
-    _lastSensorBaseline = null;
+    var _lastSensorBaseline = null;
 
     final email = (user?.email ?? '').trim();
     final display = (user?.displayName ?? '').trim();
@@ -153,7 +147,7 @@ class StepTrackHubController extends GetxController {
       final rawSensor = box.get(_uidKey('sensor_step_count', user?.uid));
       final parsedSensor = int.tryParse(rawSensor?.toString() ?? '');
       if (parsedSensor != null && parsedSensor >= 0) {
-        _lastSensorBaseline = parsedSensor;
+        var _lastSensorBaseline = parsedSensor;
       }
     }
 
@@ -302,70 +296,8 @@ class StepTrackHubController extends GetxController {
     return (todaySteps.value * 0.04 * factor).round();
   }
 
-  Future<void> _startLivePedometer() async {
-    if (kIsWeb) return;
-    try {
-      final status = await Permission.activityRecognition.status;
-      if (!status.isGranted && !status.isLimited) return;
-
-      await _pedometerSub?.cancel();
-      _pedometerSub = Pedometer.stepCountStream.listen(
-        _onPedometerEvent,
-        onError: (e) => debugPrint('Pedometer stream error: $e'),
-      );
-    } catch (e) {
-      debugPrint('Start pedometer error: $e');
-    }
-  }
-
-  void _onPedometerEvent(StepCount event) {
-    if (event.steps < 0) return;
-    final prev = _lastSensorBaseline;
-    if (prev == null) {
-      _lastSensorBaseline = event.steps;
-      _saveSensorBaseline(event.steps);
-      return;
-    }
-
-    final delta = event.steps >= prev ? event.steps - prev : 0;
-    _lastSensorBaseline = event.steps;
-    _saveSensorBaseline(event.steps);
-
-    if (delta <= 0) return;
-
-    final todayStr = _dateKey(DateTime.now());
-    final updatedMap = Map<String, int>.from(stepsByDay);
-    updatedMap[todayStr] = (updatedMap[todayStr] ?? 0) + delta;
-    stepsByDay.assignAll(updatedMap);
-    _recomputeMetrics();
-
-    final uid = _auth.currentUser?.uid;
-    if (Hive.isBoxOpen(_boxName)) {
-      unawaited(
-        Hive.box(_boxName).put(_uidKey('steps_by_day', uid), updatedMap),
-      );
-    }
-    if (uid != null) {
-      unawaited(
-        _firestore
-            .collection('users')
-            .doc(uid)
-            .set({
-              'stepsByDay': updatedMap,
-              'stepsUpdatedAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true))
-            .catchError((e) => debugPrint('Step sync error: $e')),
-      );
-    }
-  }
-
-  void _saveSensorBaseline(int baseline) {
-    if (!Hive.isBoxOpen(_boxName)) return;
-    unawaited(
-      Hive.box(_boxName)
-          .put(_uidKey('sensor_step_count', _auth.currentUser?.uid), baseline),
-    );
-  }
+  // HomeScreen owns the pedometer stream. Keeping a second listener here
+  // would double-count steps and race on the shared Hive/Firestore data.
 
   Future<void> _writeLocalPrefs(String? uid, HubPreferencesModel model) async {
     if (!Hive.isBoxOpen(_boxName)) return;

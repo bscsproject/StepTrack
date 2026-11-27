@@ -18,6 +18,9 @@ import 'package:step_track/views/home/invite_friend_helper.dart';
 import 'package:step_track/views/home/track_calories_screen.dart';
 import 'package:step_track/views/home/weight_loss_plan_screen.dart';
 import 'package:step_track/views/home/weight_screen.dart';
+import 'package:step_track/views/discover/discover_screen.dart';
+import 'package:step_track/views/chat/chats_home_screen.dart';
+import 'package:step_track/views/insights/insights_tab_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -836,29 +839,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    Widget currentBody;
-    switch (_navIndex) {
-      case 1:
-        currentBody =
-            widget.discoverScreen ?? _buildUnavailableTab('Discover');
-        break;
-      case 2:
-        currentBody = widget.chatsScreen ?? _buildUnavailableTab('Chats');
-        break;
-      case 3:
-        currentBody =
-            widget.insightsScreen ?? _buildUnavailableTab('Insights');
-        break;
-      default:
-        currentBody = _buildDashboardBody();
-    }
+    // Keep all four tab subtrees mounted to preserve their local state/scroll.
+    final tabBodies = <Widget>[
+      _buildDashboardBody(),
+      widget.discoverScreen ?? const DiscoverScreen(),
+      widget.chatsScreen ?? const ChatsHomeScreen(),
+      widget.insightsScreen ?? const InsightsTabView(),
+    ];
 
     return Scaffold(
       backgroundColor: const Color(0xFF06080A),
       body: SafeArea(
         child: Stack(
           children: [
-            currentBody,
+            IndexedStack(index: _navIndex, children: tabBodies),
             if (_isQuickMenuOpen && _navIndex == 0) ...[
               Positioned.fill(
                 child: GestureDetector(
@@ -895,32 +889,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildUnavailableTab(String title) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.hourglass_empty_rounded,
-              color: Color(0xFF4FD0F8),
-              size: 36,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '$title is not configured yet.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFFB7C2CE),
-                fontSize: 15,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildDashboardBody() {
     final String dateLabel = _displayDate(_selectedDate);

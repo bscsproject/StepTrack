@@ -1,12 +1,15 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+
 import 'package:step_track/model/user_model.dart';
 import 'package:step_track/services/auth_service.dart';
 import 'package:step_track/views/auth/create_profile_screen.dart';
 import 'package:step_track/views/auth/welcome_user_screen.dart';
+
 import 'package:step_track/views/onboardindscreens/all_set_onobarding_scren.dart';
 import 'package:step_track/views/onboardindscreens/autostart_onboarding_screen.dart';
 import 'package:step_track/views/onboardindscreens/battery_optimization.dart';
@@ -20,91 +23,228 @@ class AuthController extends GetxController {
   final AuthService _authService = AuthService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Loading states
-  var isLoading = false.obs;
-  var isGoogleLoading = false.obs;
+  // ============================================================
+  // LOADING STATES
+  // ============================================================
 
-  // Profile creation state (Screen 1 & Screen 2)
+  final RxBool isLoading = false.obs;
+  final RxBool isGoogleLoading = false.obs;
+
+  // ============================================================
+  // PROFILE CREATION STATE
+  // ============================================================
+
   final List<Color> avatarColors = const [
-    Color(0xFF2EC4B6), // Teal
-    Color(0xFF00BBF9), // Cyan
-    Color(0xFF4361EE), // Royal Blue
-    Color(0xFF7209B7), // Deep Purple
-    Color(0xFFB5179E), // Violet/Purple
-    Color(0xFFFF4DA6), // Hot Pink
-    Color(0xFFFF4D6D), // Coral Red
+    Color(0xFF2EC4B6),
+    Color(0xFF00BBF9),
+    Color(0xFF4361EE),
+    Color(0xFF7209B7),
+    Color(0xFFB5179E),
+    Color(0xFFFF4DA6),
+    Color(0xFFFF4D6D),
   ];
 
-  var selectedColorIndex = 5.obs;
-  var profileName = ''.obs;
-  var profileDescription = ''.obs;
-  var subscribeNewsletter = true.obs;
+  final RxInt selectedColorIndex = 5.obs;
+  final RxString profileName = ''.obs;
+  final RxString profileDescription = ''.obs;
+  final RxBool subscribeNewsletter = true.obs;
 
   void selectAvatarColor(int index) {
-    selectedColorIndex.value = index;
-  }
-
-  void shuffleAvatarColor() {
-    final next = (selectedColorIndex.value + 1) % avatarColors.length;
-    selectedColorIndex.value = next;
-  }
-
-  Future<void> _setLocalOnboardingCompleted(bool value) async {
-    if (Hive.isBoxOpen('steptrack_auth_box')) {
-      await Hive.box('steptrack_auth_box').put('isOnboardingCompleted', value);
+    if (index >= 0 && index < avatarColors.length) {
+      selectedColorIndex.value = index;
     }
   }
 
-  // =========================================================================
-  // DIRECT STEP-BY-STEP ONBOARDING FLOW (Step 1 -> Step 8 -> /home)
-  // =========================================================================
-
-  /// Auth complete hone ke baad seedha Step 1 (Motion Sensor) se flow start karta hai
-  void startOnboardingFlow() {
-    Get.offAll(() => _buildStep1MotionSensor());
+  void shuffleAvatarColor() {
+    selectedColorIndex.value =
+        (selectedColorIndex.value + 1) % avatarColors.length;
   }
+
+  // ============================================================
+  // LOCAL ONBOARDING STORAGE
+  // ============================================================
+
+  Future<void> _setLocalOnboardingCompleted(bool value) async {
+    if (Hive.isBoxOpen('steptrack_auth_box')) {
+      await Hive.box('steptrack_auth_box')
+          .put('isOnboardingCompleted', value);
+    } else {
+      debugPrint('AUTH: Hive auth box is not open.');
+    }
+  }
+
+  // ============================================================
+  // COMMON ONBOARDING NAVIGATION
+  // ============================================================
+
+  void _replaceOnboardingStep(
+    Widget Function() pageBuilder,
+    String stepName,
+  ) {
+    debugPrint('ONBOARDING: Navigating to $stepName');
+
+    Get.off(
+      () => pageBuilder(),
+      transition: Transition.rightToLeft,
+      duration: const Duration(milliseconds: 300),
+    );
+  }
+
+  /// Auth / Welcome ke baad onboarding ka first screen open karein.
+  ///
+  /// Flow:
+  /// Motion Sensor -> Setup Metrics -> Main Goal -> Goal Reminder
+  /// -> Daily Circle -> Battery -> Autostart -> All Set -> Home
+  void startOnboardingFlow() {
+    debugPrint('AUTH: Starting onboarding flow from Step 1');
+
+    Get.offAll(
+      () => _buildStep1MotionSensor(),
+      transition: Transition.rightToLeft,
+      duration: const Duration(milliseconds: 300),
+    );
+  }
+
+  // ============================================================
+  // STEP 1: MOTION SENSOR
+  // ============================================================
 
   Widget _buildStep1MotionSensor() {
     return MotionSensorOnboardingScreen(
-      onContinue: () => Get.off(() => _buildStep2SetupMetrics()),
+      totalSteps: 8,
+      currentStep: 0,
+      onContinue: _navigateToStep2,
     );
   }
+
+  void _navigateToStep2() {
+    debugPrint('AUTH: Step 1 Continue callback received');
+
+    _replaceOnboardingStep(
+      _buildStep2SetupMetrics,
+      'Step 2 - Setup Metrics',
+    );
+  }
+
+  // ============================================================
+  // STEP 2: SETUP METRICS
+  // ============================================================
 
   Widget _buildStep2SetupMetrics() {
     return SetupOnboardingScreen(
-      onContinue: () => Get.off(() => _buildStep3MainGoal()),
+      totalSteps: 8,
+      currentStep: 1,
+      onContinue: _navigateToStep3,
     );
   }
+
+  void _navigateToStep3() {
+    debugPrint('AUTH: Step 2 Next callback received');
+
+    _replaceOnboardingStep(
+      _buildStep3MainGoal,
+      'Step 3 - Main Goal',
+    );
+  }
+
+  // ============================================================
+  // STEP 3: MAIN GOAL
+  // ============================================================
 
   Widget _buildStep3MainGoal() {
     return GoalOnboardingScreen(
-      onContinue: () => Get.off(() => _buildStep4GoalReminder()),
+      onContinue: _navigateToStep4,
     );
   }
+
+  void _navigateToStep4() {
+    debugPrint('AUTH: Step 3 Continue callback received');
+
+    _replaceOnboardingStep(
+      _buildStep4GoalReminder,
+      'Step 4 - Goal Reminder',
+    );
+  }
+
+  // ============================================================
+  // STEP 4: GOAL REMINDER
+  // ============================================================
 
   Widget _buildStep4GoalReminder() {
     return GoalReminderOnboardingScreen(
-      onContinue: () => Get.off(() => _buildStep5DailyCircle()),
+      onContinue: _navigateToStep5,
     );
   }
+
+  void _navigateToStep5() {
+    debugPrint('AUTH: Step 4 Continue callback received');
+
+    _replaceOnboardingStep(
+      _buildStep5DailyCircle,
+      'Step 5 - Daily Circle',
+    );
+  }
+
+  // ============================================================
+  // STEP 5: DAILY CIRCLE
+  // ============================================================
 
   Widget _buildStep5DailyCircle() {
     return DailyCircleOnboardingScreen(
-      onGetStarted: () => Get.off(() => _buildStep6BatteryOptimisation()),
+      onGetStarted: _navigateToStep6,
     );
   }
+
+  void _navigateToStep6() {
+    debugPrint('AUTH: Step 5 Get Started callback received');
+
+    _replaceOnboardingStep(
+      _buildStep6BatteryOptimisation,
+      'Step 6 - Battery Optimisation',
+    );
+  }
+
+  // ============================================================
+  // STEP 6: BATTERY OPTIMISATION
+  // ============================================================
 
   Widget _buildStep6BatteryOptimisation() {
     return BatteryOptimisationOnboardingScreen(
-      onContinue: () => Get.off(() => _buildStep7EnableAutostart()),
+      onContinue: _navigateToStep7,
     );
   }
 
-  Widget _buildStep7EnableAutostart() {
-    return EnableAutostartOnboardingScreen(
-      onContinue: () => Get.off(() => _buildStep8AllSetUp()),
+  void _navigateToStep7() {
+    debugPrint('AUTH: Step 6 Continue callback received');
+
+    _replaceOnboardingStep(
+      _buildStep7EnableAutostart,
+      'Step 7 - Enable Autostart',
     );
   }
+
+  // ============================================================
+  // STEP 7: ENABLE AUTOSTART
+  // ============================================================
+
+  Widget _buildStep7EnableAutostart() {
+    return EnableAutostartOnboardingScreen(
+      onContinue: _navigateToStep8,
+    );
+  }
+
+  void _navigateToStep8() {
+    debugPrint('AUTH: Step 7 Continue callback received');
+
+    _replaceOnboardingStep(
+      _buildStep8AllSetUp,
+      'Step 8 - All Set',
+    );
+  }
+
+  // ============================================================
+  // STEP 8: ALL SET
+  // ============================================================
 
   Widget _buildStep8AllSetUp() {
     return AllSetOnboardingScreen(
@@ -112,33 +252,59 @@ class AuthController extends GetxController {
     );
   }
 
-  /// Final step ("Let's Go") par completion save karke HomeScreen open karta hai
+  // ============================================================
+  // FINISH ONBOARDING -> HOME
+  // ============================================================
+
   Future<void> finishOnboardingAndGoHome() async {
+    debugPrint('AUTH: Onboarding completed. Opening Home.');
+
     final uid = FirebaseAuth.instance.currentUser?.uid;
+
     try {
       isLoading.value = true;
+
       await _setLocalOnboardingCompleted(true);
+
       if (uid != null) {
-        await _firestore.collection('users').doc(uid).set({
-          'isOnboardingCompleted': true,
-        }, SetOptions(merge: true));
+        await _firestore.collection('users').doc(uid).set(
+          {
+            'isOnboardingCompleted': true,
+          },
+          SetOptions(merge: true),
+        );
       }
+
+      debugPrint('AUTH: Onboarding completion saved.');
+    } catch (e) {
+      debugPrint('AUTH: Onboarding save error: $e');
+
+      Get.snackbar(
+        'Saving Error',
+        'Unable to save onboarding status. Please try again.',
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       isLoading.value = false;
     }
+
     Get.offAllNamed('/home');
   }
 
-  // =========================================================================
+  // ============================================================
   // AUTH ACTIONS
-  // =========================================================================
+  // ============================================================
 
-  // Skip -> Direct Step 1 (Motion Sensor)
   void skipToOnboarding() {
     startOnboardingFlow();
   }
 
-  // 1. Signup with Email -> Create Profile Screen
+  // ------------------------------------------------------------
+  // 1. EMAIL SIGNUP -> CREATE PROFILE
+  // ------------------------------------------------------------
+
   Future<void> signUp({
     required String name,
     required String email,
@@ -146,6 +312,7 @@ class AuthController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
+
       final UserModel? user = await _authService.signUpWithEmail(
         name: name,
         email: email,
@@ -154,10 +321,14 @@ class AuthController extends GetxController {
 
       if (user != null) {
         profileName.value = user.name;
+
         await _setLocalOnboardingCompleted(false);
+
         Get.offAll(() => const CreateProfileScreen());
       }
     } catch (e) {
+      debugPrint('AUTH: Signup error: $e');
+
       Get.snackbar(
         'Signup Failed',
         e.toString(),
@@ -170,22 +341,25 @@ class AuthController extends GetxController {
     }
   }
 
-  // 2. Continue with Google -> Direct /home (agar onboarding completed hai) ya Create Profile
+  // ------------------------------------------------------------
+  // 2. GOOGLE SIGN-IN -> DIRECT HOME (TESTING)
+  // ------------------------------------------------------------
+
   Future<void> continueWithGoogle() async {
     try {
       isGoogleLoading.value = true;
+
       final UserModel? user = await _authService.signInWithGoogle();
 
       if (user != null) {
         profileName.value = user.name;
-        await _setLocalOnboardingCompleted(user.isOnboardingCompleted);
-        if (user.isOnboardingCompleted) {
-          Get.offAllNamed('/home');
-        } else {
-          Get.offAll(() => const CreateProfileScreen());
-        }
+
+        // TESTING: Directly open Home after Google login.
+        Get.offAllNamed('/home');
       }
     } catch (e) {
+      debugPrint('AUTH: Google sign-in error: $e');
+
       Get.snackbar(
         'Google Sign-In Error',
         e.toString(),
@@ -198,34 +372,29 @@ class AuthController extends GetxController {
     }
   }
 
-  // 3. Login with Email -> Agar onboarding complete hai to /home, warna Step 1 (Motion Sensor)
+  // ------------------------------------------------------------
+  // 3. EMAIL LOGIN -> DIRECT HOME (TESTING)
+  // ------------------------------------------------------------
+
   Future<void> signIn({
     required String email,
     required String password,
   }) async {
     try {
       isLoading.value = true;
+
       final user = await _authService.loginWithEmail(
         email: email,
         password: password,
       );
 
       if (user != null) {
-        final doc = await _firestore.collection('users').doc(user.uid).get();
-        final data = doc.data();
-        if (data != null && data['name'] != null) {
-          profileName.value = data['name'];
-        }
-
-        final bool completed = data?['isOnboardingCompleted'] == true;
-        await _setLocalOnboardingCompleted(completed);
-        if (completed) {
-          Get.offAllNamed('/home');
-        } else {
-          startOnboardingFlow();
-        }
+        // TESTING: Directly open Home after Email login.
+        Get.offAllNamed('/home');
       }
     } catch (e) {
+      debugPrint('AUTH: Login error: $e');
+
       Get.snackbar(
         'Login Failed',
         e.toString(),
@@ -238,24 +407,38 @@ class AuthController extends GetxController {
     }
   }
 
-  // 4. Screen 1 ("Create Profile") Continue -> Save & Open Screen 2 ("Welcome!")
+  // ------------------------------------------------------------
+  // 4. CREATE PROFILE -> WELCOME SCREEN
+  // ------------------------------------------------------------
+
   Future<void> saveProfileAndGoWelcome({
     required String name,
     required String description,
   }) async {
-    final cleanName = name.trim().isEmpty ? 'StepTrack User' : name.trim();
+    final cleanName =
+        name.trim().isEmpty ? 'StepTrack User' : name.trim();
+
     profileName.value = cleanName;
     profileDescription.value = description.trim();
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
+
     if (uid != null) {
       try {
         isLoading.value = true;
-        await _firestore.collection('users').doc(uid).set({
-          'name': cleanName,
-          'description': profileDescription.value,
-          'avatarColorValue': avatarColors[selectedColorIndex.value].value,
-        }, SetOptions(merge: true));
+
+        await _firestore.collection('users').doc(uid).set(
+          {
+            'name': cleanName,
+            'description': profileDescription.value,
+            'avatarColorValue':
+                avatarColors[selectedColorIndex.value].value,
+          },
+          SetOptions(merge: true),
+        );
+      } catch (e) {
+        debugPrint('AUTH: Save profile error: $e');
+        rethrow;
       } finally {
         isLoading.value = false;
       }
@@ -264,15 +447,26 @@ class AuthController extends GetxController {
     Get.off(() => const WelcomeUserScreen());
   }
 
-  // 5. Screen 2 ("Welcome!") Continue -> Save Newsletter & Direct Start Step 1 (Motion Sensor)
+  // ------------------------------------------------------------
+  // 5. WELCOME SCREEN -> ONBOARDING
+  // ------------------------------------------------------------
+
   Future<void> completeWelcomeToOnboarding() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+
     if (uid != null) {
       try {
         isLoading.value = true;
-        await _firestore.collection('users').doc(uid).set({
-          'subscribeNewsletter': subscribeNewsletter.value,
-        }, SetOptions(merge: true));
+
+        await _firestore.collection('users').doc(uid).set(
+          {
+            'subscribeNewsletter': subscribeNewsletter.value,
+          },
+          SetOptions(merge: true),
+        );
+      } catch (e) {
+        debugPrint('AUTH: Save newsletter error: $e');
+        rethrow;
       } finally {
         isLoading.value = false;
       }

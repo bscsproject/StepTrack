@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:step_track/controller/suite_realtime_controller.dart';
-import 'package:step_track/views/discover/suite_navigation_bar.dart';
 
 class StepsAppFeedScreen extends StatefulWidget {
   static const String routeName = '/feed-suite';
@@ -30,7 +29,6 @@ class _StepsAppFeedScreenState extends State<StepsAppFeedScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('StepsApp Community Feed')),
-      bottomNavigationBar: const SuiteNavigationBar(currentIndex: 2),
       body: Obx(
         () => ListView(
           padding: const EdgeInsets.all(16),

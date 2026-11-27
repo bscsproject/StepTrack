@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:step_track/controller/suite_realtime_controller.dart';
-import 'package:step_track/views/discover/suite_navigation_bar.dart';
 import 'thread_conversation_screen.dart';
 
 class ChatsHomeScreen extends StatelessWidget {
@@ -25,7 +24,6 @@ class ChatsHomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: const SuiteNavigationBar(currentIndex: 1),
       body: Obx(() {
         if (c.threads.isEmpty) {
           return Center(

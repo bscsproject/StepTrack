@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:step_track/controller/social_realtime_controller.dart';
 import 'package:step_track/views/chat/chat_screen.dart';
-import 'package:step_track/views/discover/social_nav_bar.dart';
 
 import 'discover_screen.dart';
 
@@ -38,7 +37,6 @@ class SocialHubScreen extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: const SocialNavBar(currentIndex: 0),
       body: Obx(
         () => ListView(
           padding: const EdgeInsets.all(16),

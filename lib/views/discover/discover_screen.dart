@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:step_track/controller/suite_realtime_controller.dart';
 import 'package:step_track/model/groups_modal_screen.dart';
 import 'package:step_track/views/discover/discover_widgets.dart';
-import 'package:step_track/views/discover/suite_navigation_bar.dart';
 
 import 'create_challenge_screen.dart';
 import 'previous_challenges_screen.dart';
@@ -39,7 +38,6 @@ class DiscoverScreen extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: const SuiteNavigationBar(currentIndex: 0),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Get.toNamed(CreateChallengeScreen.routeName),
         icon: const Icon(Icons.add_task),

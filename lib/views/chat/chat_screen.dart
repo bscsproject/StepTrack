@@ -5,7 +5,6 @@ import 'package:step_track/controller/social_realtime_controller.dart';
 import 'package:step_track/model/social_models.dart';
 import 'package:step_track/views/discover/discover_screen.dart';
 import 'package:step_track/views/discover/social_hub_screen.dart';
-import 'package:step_track/views/discover/social_nav_bar.dart';
 
 class ChatScreen extends StatefulWidget {
   static const String routeName = '/chat';
@@ -64,7 +63,6 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: const SocialNavBar(currentIndex: 1),
       body: Obx(() {
         final threads = controller.threads;
         final messages = controller.activeMessages;
