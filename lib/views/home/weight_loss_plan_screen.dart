@@ -42,46 +42,45 @@ class _WeightLossPlanScreenState extends State<WeightLossPlanScreen> {
         widget.currentGoal >= 8000 ? widget.currentGoal : 8000;
     await _authService.saveUserMainGoal('$upgradedGoal steps');
 
-    if (Hive.isBoxOpen(_boxName)) {
-      final box = Hive.box(_boxName);
-      final currentAuthUser = _authService.currentUser;
-      final existing = (currentAuthUser != null
-              ? _authService.getCachedUserByUid(currentAuthUser.uid)
-              : null) ??
-          _authService.getCachedUser();
+    if (!Hive.isBoxOpen(_boxName)) {
+      throw StateError('Hive box "$_boxName" is not open.');
+    }
+    final box = Hive.box(_boxName);
+    final currentAuthUser = _authService.currentUser;
+    final existing = (currentAuthUser != null
+            ? _authService.getCachedUserByUid(currentAuthUser.uid)
+            : null) ??
+        _authService.getCachedUser();
 
-      final uid = currentAuthUser?.uid ?? existing?.uid ?? 'guest_user';
-      final Map<String, dynamic> existingMap = existing?.toMap() ?? {};
+    final uid = currentAuthUser?.uid ?? existing?.uid ?? 'guest_user';
+    final Map<String, dynamic> existingMap = existing?.toMap() ?? {};
 
-      final Map<String, dynamic> updatedMap = {
-        ...existingMap,
-        'uid': uid,
-        'name':
-            existing?.name ?? currentAuthUser?.displayName ?? 'StepTrack User',
-        'email': existing?.email ?? currentAuthUser?.email ?? '',
-        'createdAt': existing?.createdAt.toIso8601String() ??
-            DateTime.now().toIso8601String(),
+    final Map<String, dynamic> updatedMap = {
+      ...existingMap,
+      'uid': uid,
+      'name':
+          existing?.name ?? currentAuthUser?.displayName ?? 'StepTrack User',
+      'email': existing?.email ?? currentAuthUser?.email ?? '',
+      'createdAt': existing?.createdAt.toIso8601String() ??
+          DateTime.now().toIso8601String(),
+      'weightLossPlanActive': true,
+      'weightLossPlanId': planId,
+      'weightLossPlanLabel': planLabel,
+      'weightLossPlanPrice': priceSummary,
+      'freeTrialStartedAt': DateTime.now().toIso8601String(),
+    };
+
+    await box.put(_currentUserKey, jsonEncode(updatedMap));
+    await box.put('user_$uid', jsonEncode(updatedMap));
+
+    if (currentAuthUser != null) {
+      await _firestore.collection('users').doc(currentAuthUser.uid).set({
         'weightLossPlanActive': true,
         'weightLossPlanId': planId,
         'weightLossPlanLabel': planLabel,
         'weightLossPlanPrice': priceSummary,
         'freeTrialStartedAt': DateTime.now().toIso8601String(),
-      };
-
-      await box.put(_currentUserKey, jsonEncode(updatedMap));
-      await box.put('user_$uid', jsonEncode(updatedMap));
-
-      if (currentAuthUser != null) {
-        try {
-          await _firestore.collection('users').doc(currentAuthUser.uid).set({
-            'weightLossPlanActive': true,
-            'weightLossPlanId': planId,
-            'weightLossPlanLabel': planLabel,
-            'weightLossPlanPrice': priceSummary,
-            'freeTrialStartedAt': DateTime.now().toIso8601String(),
-          }, SetOptions(merge: true));
-        } catch (_) {}
-      }
+      }, SetOptions(merge: true));
     }
   }
 
@@ -104,6 +103,18 @@ class _WeightLossPlanScreenState extends State<WeightLossPlanScreen> {
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
+    } catch (error, stackTrace) {
+      debugPrint('Could not activate the weight loss plan: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        Get.snackbar(
+          'Plan activation failed',
+          'Your plan could not be saved. Please try again.',
+          backgroundColor: const Color(0xFF2A1418),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isActivating = false);

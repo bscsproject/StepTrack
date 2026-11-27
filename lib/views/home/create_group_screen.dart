@@ -75,7 +75,10 @@ class CreateGroupScreen extends StatefulWidget {
             .where((g) => g.name.trim().isNotEmpty)
             .toList();
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint('Could not decode cached groups: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
     return const [];
   }
 
@@ -148,22 +151,30 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       final existing = CreateGroupScreen.loadCachedGroups();
       final updatedList = [...existing, group];
 
-      if (Hive.isBoxOpen(CreateGroupScreen.boxName)) {
-        final box = Hive.box(CreateGroupScreen.boxName);
-        await box.put(
-          CreateGroupScreen.groupsKey,
-          jsonEncode(updatedList.map((e) => e.toMap()).toList()),
+      if (!Hive.isBoxOpen(CreateGroupScreen.boxName)) {
+        throw StateError(
+          'Hive box "${CreateGroupScreen.boxName}" is not open.',
         );
       }
+      final box = Hive.box(CreateGroupScreen.boxName);
+      await box.put(
+        CreateGroupScreen.groupsKey,
+        jsonEncode(updatedList.map((e) => e.toMap()).toList()),
+      );
 
       final uid = _authService.currentUser?.uid;
+      var cloudSyncFailed = false;
       if (uid != null) {
         try {
           await _firestore.collection('users').doc(uid).set({
             'groups': updatedList.map((e) => e.toMap()).toList(),
             'activeGroupId': group.id,
           }, SetOptions(merge: true));
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          cloudSyncFailed = true;
+          debugPrint('Could not sync the new group to Firestore: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
       }
 
       widget.onGroupCreated?.call(group);
@@ -171,8 +182,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       if (!mounted) return;
       Get.back(result: group);
       Get.snackbar(
-        'Group Created',
-        '"${group.name}" group created and added to Home.',
+        cloudSyncFailed ? 'Group saved locally' : 'Group Created',
+        cloudSyncFailed
+            ? '"${group.name}" is on this device but could not sync to your account.'
+            : '"${group.name}" group created and added to Home.',
         backgroundColor: const Color(0xFF132632),
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,

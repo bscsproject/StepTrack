@@ -158,7 +158,10 @@ class ChallengeStorageHelper {
             .where((c) => c.id.isNotEmpty)
             .toList();
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint('Could not decode saved challenges: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
     return const [];
   }
 
@@ -166,20 +169,19 @@ class ChallengeStorageHelper {
     List<StepTrackChallengeModel> list, {
     String? uid,
   }) async {
-    if (Hive.isBoxOpen(boxName)) {
-      final box = Hive.box(boxName);
-      await box.put(
-        challengesKey,
-        jsonEncode(list.map((e) => e.toMap()).toList()),
-      );
+    if (!Hive.isBoxOpen(boxName)) {
+      throw StateError('Hive box "$boxName" is not open.');
     }
+    final box = Hive.box(boxName);
+    await box.put(
+      challengesKey,
+      jsonEncode(list.map((e) => e.toMap()).toList()),
+    );
 
     if (uid != null && uid.isNotEmpty) {
-      try {
-        await FirebaseFirestore.instance.collection('users').doc(uid).set({
-          'challenges': list.map((e) => e.toMap()).toList(),
-        }, SetOptions(merge: true));
-      } catch (_) {}
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'challenges': list.map((e) => e.toMap()).toList(),
+      }, SetOptions(merge: true));
     }
   }
 }
@@ -632,6 +634,18 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
       );
       if (savedChallenge != null) {
         widget.onChallengeSaved?.call();
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Could not save the challenge: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        Get.snackbar(
+          'Challenge save failed',
+          'Your challenge could not be synced. Please try again.',
+          backgroundColor: const Color(0xFF2A1418),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
       }
     } finally {
       if (mounted) {
@@ -1238,7 +1252,7 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
     return '${d.day}. ${months[d.month - 1]}';
   }
 
-  Future<void> _persistChallengeChange(
+  Future<bool> _persistChallengeChange(
     StepTrackChallengeModel updated, {
     bool deleted = false,
   }) async {
@@ -1256,11 +1270,27 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
       }
     }
 
-    await ChallengeStorageHelper.saveChallenges(
-      next,
-      uid: _authService.currentUser?.uid,
-    );
-    widget.onUpdated?.call();
+    try {
+      await ChallengeStorageHelper.saveChallenges(
+        next,
+        uid: _authService.currentUser?.uid,
+      );
+      widget.onUpdated?.call();
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint('Could not update challenge data: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        Get.snackbar(
+          'Challenge sync failed',
+          'The change is saved locally but could not be synced.',
+          backgroundColor: const Color(0xFF2A1418),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+      return false;
+    }
   }
 
   Future<void> _copyInviteLink() async {
@@ -1327,13 +1357,17 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
                 final updated =
                     _challenge.copyWith(participants: updatedParticipants);
                 setState(() => _challenge = updated);
-                await _persistChallengeChange(updated);
+                final saved = await _persistChallengeChange(updated);
+                if (!saved || !mounted) return;
 
                 final existingInvites = _authService.getCachedInvitedFriends();
                 await _authService.saveInvitedFriends(
                   [...existingInvites, friend],
                 );
-                Get.back();
+                if (!mounted) return;
+                if (ModalRoute.of(context)?.isCurrent == false) {
+                  Get.back();
+                }
               }
             },
             style: ElevatedButton.styleFrom(
@@ -1351,8 +1385,8 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
     final updated =
         _challenge.copyWith(hiddenInHomeTab: !_challenge.hiddenInHomeTab);
     setState(() => _challenge = updated);
-    await _persistChallengeChange(updated);
-    if (!mounted) return;
+    final saved = await _persistChallengeChange(updated);
+    if (!saved || !mounted) return;
     Get.snackbar(
       updated.hiddenInHomeTab ? 'Hidden in Home Tab' : 'Shown in Home Tab',
       updated.hiddenInHomeTab
@@ -1448,8 +1482,11 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
                     isTeamMode: teamVal,
                   );
                   setState(() => _challenge = updated);
-                  await _persistChallengeChange(updated);
-                  Get.back();
+                  final saved = await _persistChallengeChange(updated);
+                  if (saved && mounted &&
+                      ModalRoute.of(context)?.isCurrent == false) {
+                    Get.back();
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4FD0F8),
@@ -1522,8 +1559,11 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
                             participants: nextMembers,
                           );
                           setState(() => _challenge = updated);
-                          await _persistChallengeChange(updated);
-                          Get.back();
+                          final saved = await _persistChallengeChange(updated);
+                          if (saved && mounted &&
+                              ModalRoute.of(context)?.isCurrent == false) {
+                            Get.back();
+                          }
                         },
                       ),
               );
@@ -1544,8 +1584,8 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
   }
 
   Future<void> _deleteChallenge() async {
-    await _persistChallengeChange(_challenge, deleted: true);
-    if (!mounted) return;
+    final deleted = await _persistChallengeChange(_challenge, deleted: true);
+    if (!deleted || !mounted) return;
     Get.back(result: _challenge);
     Get.snackbar(
       'Challenge Deleted',

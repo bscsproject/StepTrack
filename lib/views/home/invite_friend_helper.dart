@@ -1,7 +1,7 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:share_plus/share_plus.dart';
@@ -73,7 +73,15 @@ class InviteFriendHelper {
           'inviteLink': link,
           'inviteUpdatedAt': DateTime.now().toIso8601String(),
         }, SetOptions(merge: true));
-      } catch (_) {}
+      } catch (error, stackTrace) {
+        debugPrint('Could not sync the invite link to Firestore: $error');
+        debugPrintStack(stackTrace: stackTrace);
+        Get.snackbar(
+          'Invite link sync delayed',
+          'The invite link is available to share, but was not synced to your account.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     }
 
     return link;
@@ -105,15 +113,13 @@ class InviteFriendHelper {
           subject: 'Join me on StepTrack',
         ),
       );
-    } catch (_) {
-      unawaited(
-        Future.value(
-          Get.snackbar(
-            'Invite Link',
-            inviteLink,
-            snackPosition: SnackPosition.BOTTOM,
-          ),
-        ),
+    } catch (error, stackTrace) {
+      debugPrint('Could not open the share sheet: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      Get.snackbar(
+        'Invite Link',
+        inviteLink,
+        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }

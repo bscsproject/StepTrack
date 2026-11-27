@@ -44,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const String _stepsCacheKeyPrefix = 'steps_by_day_';
   static const String _sensorCountCacheKeyPrefix = 'sensor_step_count_';
   static const String _stepSyncPendingKeyPrefix = 'step_sync_pending_';
+  static const String _activeGroupCacheKey = 'active_group_id';
   static const Duration _stepSyncDelay = Duration(seconds: 15);
 
   static const String _calAppPlayStoreUrl =
@@ -96,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _stepSubscription?.cancel();
     _userDocumentSubscription?.cancel();
     _stepSyncTimer?.cancel();
-    unawaited(_flushPendingStepDeltas());
+    unawaited(_flushStepDataSync());
     super.dispose();
   }
 
@@ -159,6 +160,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final box = Hive.box(_authBoxName);
     _stepsByDay.addAll(_parseStepMap(box.get(_stepsCacheKey)));
     _stepsNeedSync = box.get(_stepSyncPendingKey) == true;
+    _activeGroupId = box.get(_activeGroupCacheKey)?.toString();
     final savedSensorCount = int.tryParse(
       box.get(_sensorCountCacheKey)?.toString() ?? '',
     );
@@ -218,8 +220,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _stepsNeedSync = true;
       }
     }
-    if (_stepsByDay.isNotEmpty && remoteSteps.isEmpty) {
-      _stepsNeedSync = true;
+    for (final entry in _stepsByDay.entries) {
+      if (entry.value > (remoteSteps[entry.key] ?? 0)) {
+        _stepsNeedSync = true;
+      }
     }
 
     if (Hive.isBoxOpen(_authBoxName)) {
@@ -416,11 +420,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (_stepSyncTimer != null || !_stepsNeedSync) return;
     _stepSyncTimer = Timer(_stepSyncDelay, () {
       _stepSyncTimer = null;
-      unawaited(_flushPendingStepDeltas());
+      unawaited(_flushStepDataSync());
     });
   }
 
-  Future<void> _flushPendingStepDeltas() async {
+  Future<void> _flushStepDataSync() async {
     final uid = _authService.currentUser?.uid;
     if (!_stepsNeedSync || uid == null) return;
 
@@ -577,6 +581,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     String? selectedGroupId = _activeGroupId;
+    if (selectedGroupId == null && Hive.isBoxOpen(_authBoxName)) {
+      selectedGroupId =
+          Hive.box(_authBoxName).get(_activeGroupCacheKey)?.toString();
+    }
     if (loadedGroups.isNotEmpty) {
       final exists = loadedGroups.any((g) => g.id == selectedGroupId);
       if (!exists) {
@@ -602,6 +610,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _streakDays = calculatedStreak;
     });
     _updateChallengeProgress();
+  }
+
+  Future<void> _selectActiveGroup(String groupId) async {
+    setState(() => _activeGroupId = groupId);
+    try {
+      if (!Hive.isBoxOpen(_authBoxName)) {
+        throw StateError('Hive box "$_authBoxName" is not open.');
+      }
+      await Hive.box(_authBoxName).put(_activeGroupCacheKey, groupId);
+
+      final uid = _authService.currentUser?.uid;
+      if (uid != null) {
+        await _firestore.collection('users').doc(uid).set({
+          'activeGroupId': groupId,
+        }, SetOptions(merge: true));
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Could not save the selected group: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        Get.snackbar(
+          'Group selection not saved',
+          'Could not save your selected group.',
+          backgroundColor: const Color(0xFF15222B),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    }
   }
 
   StepTrackGroupModel? get _activeGroup {
@@ -683,9 +720,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _openPlayStoreCalApp() async {
-    final uri = Uri.parse(_calAppPlayStoreUrl);
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!launched && mounted) {
+    try {
+      final uri = Uri.parse(_calAppPlayStoreUrl);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launched || !mounted) return;
       Get.snackbar(
         'Play Store',
         'Play Store link open nahi ho saka.',
@@ -693,18 +734,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
+    } catch (error, stackTrace) {
+      debugPrint('Could not open the Play Store link: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        Get.snackbar(
+          'Play Store',
+          'Play Store link open nahi ho saka.',
+          backgroundColor: const Color(0xFF15222B),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     }
   }
 
   Future<void> _shareProgress() async {
-    unawaited(
-      SharePlus.instance.share(
+    try {
+      await SharePlus.instance.share(
         ShareParams(
           text:
               'StepTrack (${_displayDate(_selectedDate)}): $_activeSteps steps, $_caloriesKcal kcal, $_distanceMeters m.',
         ),
-      ),
-    );
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Could not share the StepTrack progress: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        Get.snackbar(
+          'Share unavailable',
+          'StepTrack progress could not be shared.',
+          backgroundColor: const Color(0xFF15222B),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    }
   }
 
   Future<void> _onQuickActionSelected(_QuickActionType action) async {
@@ -736,19 +801,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           () => CreateGroupScreen(
             onGroupCreated: (grp) {
               if (!mounted) return;
-              setState(() {
-                _activeGroupId = grp.id;
-                _showNewPublicGroupBanner = true;
-              });
+              setState(() => _showNewPublicGroupBanner = true);
+              unawaited(_selectActiveGroup(grp.id));
               _syncFromSavedUserData();
             },
           ),
         );
         if (createdGroup != null && mounted) {
-          setState(() {
-            _activeGroupId = createdGroup.id;
-            _showNewPublicGroupBanner = true;
-          });
+          setState(() => _showNewPublicGroupBanner = true);
+          unawaited(_selectActiveGroup(createdGroup.id));
         }
         break;
       case _QuickActionType.createChallenge:
@@ -776,14 +837,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     Widget currentBody;
-    if (_navIndex == 1 && widget.discoverScreen != null) {
-      currentBody = widget.discoverScreen!;
-    } else if (_navIndex == 2 && widget.chatsScreen != null) {
-      currentBody = widget.chatsScreen!;
-    } else if (_navIndex == 3 && widget.insightsScreen != null) {
-      currentBody = widget.insightsScreen!;
-    } else {
-      currentBody = _buildDashboardBody();
+    switch (_navIndex) {
+      case 1:
+        currentBody =
+            widget.discoverScreen ?? _buildUnavailableTab('Discover');
+        break;
+      case 2:
+        currentBody = widget.chatsScreen ?? _buildUnavailableTab('Chats');
+        break;
+      case 3:
+        currentBody =
+            widget.insightsScreen ?? _buildUnavailableTab('Insights');
+        break;
+      default:
+        currentBody = _buildDashboardBody();
     }
 
     return Scaffold(
@@ -825,6 +892,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             )
           : null,
       bottomNavigationBar: _buildBottomNavBar(),
+    );
+  }
+
+  Widget _buildUnavailableTab(String title) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.hourglass_empty_rounded,
+              color: Color(0xFF4FD0F8),
+              size: 36,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '$title is not configured yet.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFB7C2CE),
+                fontSize: 15,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -946,24 +1040,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   size: 26,
                 ),
               ),
-              SizedBox(
-                width: 230,
-                height: 230,
-                child: CustomPaint(
-                  painter: _StepRingPainter(progress: _goalProgress),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        dateLabel,
-                        style: const TextStyle(
-                          color: Color(0xFF4FD0F8),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final ringSize = math.min(
+                      230.0,
+                      math.max(0.0, constraints.maxWidth),
+                    );
+                    return SizedBox(
+                      width: ringSize,
+                      height: ringSize,
+                      child: CustomPaint(
+              painter: _StepRingPainter(progress: _goalProgress),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    dateLabel,
+                    style: const TextStyle(
+                      color: Color(0xFF4FD0F8),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
                         _formatNumber(_activeSteps),
                         style: const TextStyle(
                           color: Colors.white,
@@ -972,17 +1078,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           height: 1.05,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        goalSubtitle,
-                        style: const TextStyle(
-                          color: Color(0xFF7D858E),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    goalSubtitle,
+                    style: const TextStyle(
+                      color: Color(0xFF7D858E),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+                      ),
+                    );
+                  },
                 ),
               ),
               IconButton(
@@ -1154,7 +1265,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   return Padding(
                     padding: const EdgeInsets.only(left: 8),
                     child: GestureDetector(
-                      onTap: () => setState(() => _activeGroupId = grp.id),
+                      onTap: () => _selectActiveGroup(grp.id),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -1371,12 +1482,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Text(
-                        _userName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          _userName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -1544,27 +1659,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              chl.title,
-                              style: const TextStyle(
-                                color: Color(0xFF4FD0F8),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                chl.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF4FD0F8),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${_formatNumber(chl.dailyGoalSteps)} steps for ${chl.durationDays} days',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_formatNumber(chl.dailyGoalSteps)} steps for ${chl.durationDays} days',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         const Icon(
                           Icons.chevron_right,

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:step_track/model/user_model.dart';
@@ -35,9 +36,34 @@ class AuthService {
 
   // -------------------- Local Storage Helpers --------------------
 
+  Map<String, dynamic> _getCachedUserMap(
+    String uid, {
+    bool includeCurrentUserCache = true,
+  }) {
+    final raw = _box.get('user_$uid') ??
+        (includeCurrentUserCache ? _box.get(_currentUserKey) : null);
+    if (raw is! String || raw.isEmpty) return <String, dynamic>{};
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Could not decode cached user data: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    return <String, dynamic>{};
+  }
+
   Future<void> saveUserToLocalStorage(UserModel user) async {
-    await _box.put(_currentUserKey, jsonEncode(user.toMap()));
-    await _box.put('user_${user.uid}', jsonEncode(user.toMap()));
+    final userMap = {
+      ..._getCachedUserMap(user.uid, includeCurrentUserCache: false),
+      ...user.toMap(),
+    };
+    final encoded = jsonEncode(userMap);
+    await _box.put(_currentUserKey, encoded);
+    await _box.put('user_${user.uid}', encoded);
   }
 
   UserModel? getCachedUser() {
@@ -81,7 +107,7 @@ class AuthService {
         getCachedUser();
 
     final uid = currentAuthUser?.uid ?? existing?.uid ?? 'guest_user';
-    final existingMap = existing?.toMap() ?? <String, dynamic>{};
+    final existingMap = _getCachedUserMap(uid);
 
     final updatedMap = <String, dynamic>{
       ...existingMap,
@@ -109,6 +135,47 @@ class AuthService {
     }
   }
 
+  Future<void> saveUserWeightMetrics({
+    required double weightKg,
+    double? heightCm,
+    required DateTime loggedAt,
+    double? bmi,
+  }) async {
+    final currentAuthUser = _auth.currentUser;
+    final existing = (currentAuthUser != null
+            ? getCachedUserByUid(currentAuthUser.uid)
+            : null) ??
+        getCachedUser();
+    final uid = currentAuthUser?.uid ?? existing?.uid ?? 'guest_user';
+    final updatedMap = <String, dynamic>{
+      ..._getCachedUserMap(uid),
+      'uid': uid,
+      'name': existing?.name ?? currentAuthUser?.displayName ?? 'StepTrack User',
+      'email': existing?.email ?? currentAuthUser?.email ?? '',
+      'createdAt': existing?.createdAt.toIso8601String() ??
+          DateTime.now().toIso8601String(),
+      'weightKg': weightKg,
+      'latestWeightKg': weightKg,
+      'lastWeightLoggedAt': loggedAt.toIso8601String(),
+      if (heightCm != null) 'heightCm': heightCm,
+      if (bmi != null) 'latestBmi': bmi,
+    };
+
+    final encoded = jsonEncode(updatedMap);
+    await _box.put(_currentUserKey, encoded);
+    await _box.put('user_$uid', encoded);
+
+    if (currentAuthUser != null) {
+      await _firestore.collection('users').doc(currentAuthUser.uid).set({
+        'weightKg': weightKg,
+        'latestWeightKg': weightKg,
+        'lastWeightLoggedAt': loggedAt.toIso8601String(),
+        if (heightCm != null) 'heightCm': heightCm,
+        if (bmi != null) 'latestBmi': bmi,
+      }, SetOptions(merge: true));
+    }
+  }
+
   Map<String, dynamic>? getCachedSetupMetrics() {
     final currentUid = _auth.currentUser?.uid;
     final raw = (currentUid != null ? _box.get('user_$currentUid') : null) ??
@@ -131,7 +198,7 @@ class AuthService {
         getCachedUser();
 
     final uid = currentAuthUser?.uid ?? existing?.uid ?? 'guest_user';
-    final existingMap = existing?.toMap() ?? <String, dynamic>{};
+    final existingMap = _getCachedUserMap(uid);
 
     final updatedMap = <String, dynamic>{
       ...existingMap,
@@ -180,7 +247,7 @@ class AuthService {
         getCachedUser();
 
     final uid = currentAuthUser?.uid ?? existing?.uid ?? 'guest_user';
-    final existingMap = existing?.toMap() ?? <String, dynamic>{};
+    final existingMap = _getCachedUserMap(uid);
 
     final updatedMap = <String, dynamic>{
       ...existingMap,
@@ -214,7 +281,7 @@ class AuthService {
         getCachedUser();
 
     final uid = currentAuthUser?.uid ?? existing?.uid ?? 'guest_user';
-    final existingMap = existing?.toMap() ?? <String, dynamic>{};
+    final existingMap = _getCachedUserMap(uid);
 
     final updatedMap = <String, dynamic>{
       ...existingMap,
@@ -266,7 +333,7 @@ class AuthService {
         getCachedUser();
 
     final uid = currentAuthUser?.uid ?? existing?.uid ?? 'guest_user';
-    final existingMap = existing?.toMap() ?? <String, dynamic>{};
+    final existingMap = _getCachedUserMap(uid);
 
     final updatedMap = <String, dynamic>{
       ...existingMap,
@@ -303,7 +370,7 @@ class AuthService {
         getCachedUser();
 
     final uid = currentAuthUser?.uid ?? existing?.uid ?? 'guest_user';
-    final existingMap = existing?.toMap() ?? <String, dynamic>{};
+    final existingMap = _getCachedUserMap(uid);
 
     final updatedMap = <String, dynamic>{
       ...existingMap,
