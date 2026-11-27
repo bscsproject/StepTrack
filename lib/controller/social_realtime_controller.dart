@@ -3,7 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../models/social_models.dart';
+import 'package:step_track/model/social_models.dart';
+
 
 class SocialRealtimeController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

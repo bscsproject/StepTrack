@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/suite_models.dart';
+import 'package:step_track/model/suite_models.dart';
+
 
 class ChallengeSectionWidget extends StatelessWidget {
   final String title;

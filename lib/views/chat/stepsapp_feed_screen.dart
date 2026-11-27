@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import '../../controllers/suite_realtime_controller.dart';
-import '../../widgets/suite_navigation_bar.dart';
+import 'package:step_track/controller/suite_realtime_controller.dart';
+import 'package:step_track/views/discover/suite_navigation_bar.dart';
 
 class StepsAppFeedScreen extends StatefulWidget {
   static const String routeName = '/feed-suite';
@@ -84,8 +84,15 @@ class _StepsAppFeedScreenState extends State<StepsAppFeedScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            ...c.feedPosts.map(
-              (post) => Card(
+            ...c.feedPosts.map((dynamic post) {
+              final String authorName = (post.authorName ?? '').toString();
+              final String badge = (post.badge ?? 'Walker').toString();
+              final int stepsSnapshot = (post.stepsSnapshot ?? 0) as int;
+              final String content = (post.content ?? '').toString();
+              final bool likedByMe = (post.likedByMe ?? false) as bool;
+              final int likesCount = (post.likesCount ?? 0) as int;
+
+              return Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
@@ -96,8 +103,8 @@ class _StepsAppFeedScreenState extends State<StepsAppFeedScreen> {
                         children: [
                           CircleAvatar(
                             child: Text(
-                              post.authorName.isNotEmpty
-                                  ? post.authorName[0].toUpperCase()
+                              authorName.isNotEmpty
+                                  ? authorName[0].toUpperCase()
                                   : 'S',
                             ),
                           ),
@@ -107,13 +114,13 @@ class _StepsAppFeedScreenState extends State<StepsAppFeedScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  post.authorName,
+                                  authorName,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 Text(
-                                  '${post.badge} • ${NumberFormat.decimalPattern().format(post.stepsSnapshot)} steps',
+                                  '$badge • ${NumberFormat.decimalPattern().format(stepsSnapshot)} steps',
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ],
@@ -122,26 +129,26 @@ class _StepsAppFeedScreenState extends State<StepsAppFeedScreen> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      Text(post.content),
+                      Text(content),
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           IconButton(
                             icon: Icon(
-                              post.likedByMe
+                              likedByMe
                                   ? Icons.favorite
                                   : Icons.favorite_border,
                             ),
                             onPressed: () => c.toggleLikePost(post),
                           ),
-                          Text('${post.likesCount}'),
+                          Text('$likesCount'),
                         ],
                       ),
                     ],
                   ),
                 ),
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ),

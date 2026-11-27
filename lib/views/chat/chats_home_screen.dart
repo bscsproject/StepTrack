@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import '../../controllers/suite_realtime_controller.dart';
-import '../../widgets/suite_navigation_bar.dart';
+import 'package:step_track/controller/suite_realtime_controller.dart';
+import 'package:step_track/views/discover/suite_navigation_bar.dart';
 import 'thread_conversation_screen.dart';
 
 class ChatsHomeScreen extends StatelessWidget {
@@ -82,7 +82,7 @@ class ChatsHomeScreen extends StatelessWidget {
 
   void _showCreateRoomDialog(SuiteRealtimeController c) {
     final titleCtrl = TextEditingController();
-    final msgCtrl = TextEditingController(text: 'Ready for today's walk!');
+    final msgCtrl = TextEditingController(text: "Ready for today's walk!");
 
     Get.dialog(
       AlertDialog(

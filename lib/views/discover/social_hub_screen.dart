@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import '../controllers/social_realtime_controller.dart';
-import '../widgets/social_nav_bar.dart';
-import 'chat_screen.dart';
+import 'package:step_track/controller/social_realtime_controller.dart';
+import 'package:step_track/views/chat/chat_screen.dart';
+import 'package:step_track/views/discover/social_nav_bar.dart';
+
 import 'discover_screen.dart';
 
 class SocialHubScreen extends StatelessWidget {

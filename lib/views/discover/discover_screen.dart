@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../controllers/suite_realtime_controller.dart';
-import '../../widgets/discover_widgets.dart';
-import '../../widgets/suite_navigation_bar.dart';
+import 'package:step_track/controller/suite_realtime_controller.dart';
+import 'package:step_track/model/groups_modal_screen.dart';
+import 'package:step_track/views/discover/discover_widgets.dart';
+import 'package:step_track/views/discover/suite_navigation_bar.dart';
+
 import 'create_challenge_screen.dart';
-import 'groups_modal_screen.dart';
 import 'previous_challenges_screen.dart';
 import 'weight_loss_plan_screen.dart';
 
@@ -86,7 +87,9 @@ class DiscoverScreen extends StatelessWidget {
             ChallengeSectionWidget(
               title: 'My & Community Challenges',
               emptyText: 'No active challenges yet.',
-              items: c.filteredChallenges.where((x) => !x.completed).toList(),
+              items: c.filteredChallenges
+                  .where((dynamic x) => !((x.completed ?? false) as bool))
+                  .toList(),
               onToggleJoin: c.toggleChallengeJoin,
               onAddSteps: (item) => c.incrementChallengeSteps(item, 1000),
               onSeeAll: () => Get.toNamed(PreviousChallengesScreen.routeName),

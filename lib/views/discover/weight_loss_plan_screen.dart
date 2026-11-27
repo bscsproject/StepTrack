@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import '../../controllers/suite_realtime_controller.dart';
+import 'package:step_track/controller/suite_realtime_controller.dart';
 
 class WeightLossPlanScreen extends StatelessWidget {
   static const String routeName = '/discover/weight-loss-plan';
@@ -36,24 +36,31 @@ class WeightLossPlanScreen extends StatelessWidget {
                 ),
               )
             else
-              ...plans.map(
-                (p) => Card(
+              ...plans.map((dynamic p) {
+                final String title = (p?.title ?? '').toString();
+                final String description = (p?.description ?? '').toString();
+                final double progress =
+                    ((p?.progress ?? 0.0) as num).toDouble().clamp(0.0, 1.0);
+                final int currentSteps = ((p?.currentSteps ?? 0) as num).toInt();
+                final int targetSteps = ((p?.targetSteps ?? 0) as num).toInt();
+
+                return Card(
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          p.title,
+                          title,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
-                        Text(p.description),
+                        Text(description),
                         const SizedBox(height: 8),
-                        LinearProgressIndicator(value: p.progress),
+                        LinearProgressIndicator(value: progress),
                         const SizedBox(height: 6),
                         Text(
-                          '${NumberFormat.decimalPattern().format(p.currentSteps)} / ${NumberFormat.decimalPattern().format(p.targetSteps)} steps',
+                          '${NumberFormat.decimalPattern().format(currentSteps)} / ${NumberFormat.decimalPattern().format(targetSteps)} steps',
                         ),
                         const SizedBox(height: 8),
                         FilledButton.tonal(
@@ -63,8 +70,8 @@ class WeightLossPlanScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                ),
-              ),
+                );
+              }),
           ],
         );
       }),
