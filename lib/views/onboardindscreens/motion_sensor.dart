@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -24,123 +25,127 @@ class MotionSensorOnboardingScreen extends StatefulWidget {
 }
 
 class _MotionSensorOnboardingScreenState
-    extends State<MotionSensorOnboardingScreen> {
+    extends State<MotionSensorOnboardingScreen> with WidgetsBindingObserver {
   bool _isRequesting = false;
   bool _hasContinued = false;
+  bool _waitingForSettings = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // User Settings se wapas aaye to status dobara check karo
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (state == AppLifecycleState.resumed && _waitingForSettings) {
+      _waitingForSettings = false;
+      final status = await Permission.activityRecognition.status;
+      _finish(status.isGranted || status.isLimited);
+    }
+  }
+
+  // Result bhejo aur next screen par jao
+  void _finish(bool granted) {
+    if (!mounted || _hasContinued) return;
+    widget.onPermissionResult?.call(granted);
+    if (widget.onContinue != null) {
+      _hasContinued = true;
+      widget.onContinue!();
+    } else {
+      Get.snackbar(
+        'Navigation Missing',
+        'No onContinue callback was provided.',
+        backgroundColor: const Color(0xFF15222B),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<_PermanentlyDeniedAction?> _showSettingsDialog() {
+    return showDialog<_PermanentlyDeniedAction>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF14191F),
+        title: const Text(
+          'Activity Permission Needed',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Physical Activity permission helps StepTrack count your steps. '
+          'You can enable it in Settings or continue without it.',
+          style: TextStyle(color: Color(0xFF9EA7B3)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(ctx).pop(_PermanentlyDeniedAction.continueAnyway),
+            child: const Text(
+              'Continue',
+              style: TextStyle(color: Color(0xFF7D858E)),
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(ctx).pop(_PermanentlyDeniedAction.openSettings),
+            child: const Text(
+              'Open Settings',
+              style: TextStyle(color: Color(0xFF4FD0F8)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _onAllowButtonPressed() async {
     if (_isRequesting || _hasContinued) return;
     setState(() => _isRequesting = true);
 
-    bool isGranted = false;
-    bool shouldContinue = false;
-
     try {
-      PermissionStatus status = await Permission.activityRecognition.status;
+      var status = await Permission.activityRecognition.status;
+      debugPrint('STATUS BEFORE: $status');
 
-      if (!status.isGranted &&
-          !status.isLimited &&
-          !status.isPermanentlyDenied) {
+      if (!status.isGranted && !status.isLimited) {
         status = await Permission.activityRecognition.request();
+        debugPrint('STATUS AFTER: $status');
       }
 
-      isGranted = status.isGranted || status.isLimited;
+      // Permission mil gayi
+      if (status.isGranted || status.isLimited) {
+        _finish(true);
+        return;
+      }
 
-      if (!isGranted && status.isPermanentlyDenied && mounted) {
-        final action = await showDialog<_PermanentlyDeniedAction>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF14191F),
-            title: const Text(
-              'Activity Permission Needed',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: const Text(
-              'Physical Activity permission helps StepTrack count your steps. '
-              'You can enable it in Settings or continue without it.',
-              style: TextStyle(color: Color(0xFF9EA7B3)),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () =>
-                    Navigator.of(ctx)
-                        .pop(_PermanentlyDeniedAction.continueAnyway),
-                child: const Text(
-                  'Continue',
-                  style: TextStyle(color: Color(0xFF7D858E)),
-                ),
-              ),
-              TextButton(
-                onPressed: () =>
-                    Navigator.of(ctx)
-                        .pop(_PermanentlyDeniedAction.openSettings),
-                child: const Text(
-                  'Open Settings',
-                  style: TextStyle(color: Color(0xFF4FD0F8)),
-                ),
-              ),
-            ],
-          ),
-        );
-
-        if (!mounted || action == null) {
-          return;
-        }
-
+      // Pehle deny ho chuki hai, ab system dialog nahi aayega
+      if (status.isPermanentlyDenied && mounted) {
+        final action = await _showSettingsDialog();
         if (action == _PermanentlyDeniedAction.openSettings) {
-          final settingsOpened = await openAppSettings();
-          if (!settingsOpened && mounted) {
-            Get.snackbar(
-              'Could not open Settings',
-              'You can enable Motion Sensor permission from your device settings.',
-              backgroundColor: const Color(0xFF15222B),
-              colorText: Colors.white,
-              snackPosition: SnackPosition.BOTTOM,
-            );
-          }
+          _waitingForSettings = true;
+          final opened = await openAppSettings();
+          if (!opened) _waitingForSettings = false;
+          // Settings khul gayi: wapas aane par lifecycle observer continue karega
+          if (opened) return;
         }
       }
 
-      shouldContinue = true;
+      // Denied ya Continue dabaya: phir bhi next screen par jao
+      _finish(false);
     } catch (error, stackTrace) {
-      debugPrint('Motion sensor permission request failed: $error');
+      debugPrint('Permission request failed: $error');
       debugPrintStack(stackTrace: stackTrace);
-      if (mounted) {
-        Get.snackbar(
-          'Permission Error',
-          'Could not check or request Motion Sensor permission.',
-          backgroundColor: const Color(0xFF15222B),
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      }
+      _finish(false); // error aaye tab bhi user atke nahi
     } finally {
-      if (mounted) {
-        setState(() {
-          _isRequesting = false;
-          if (shouldContinue && widget.onContinue != null) {
-            _hasContinued = true;
-          }
-        });
-      }
-    }
-
-    if (!mounted) return;
-    if (!shouldContinue) return;
-
-    widget.onPermissionResult?.call(isGranted);
-
-    if (widget.onContinue != null) {
-      widget.onContinue!();
-    } else {
-      Get.snackbar(
-        'Navigation Missing',
-        'onContinue callback pass nahi kiya gaya.',
-        backgroundColor: const Color(0xFF15222B),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      if (mounted) setState(() => _isRequesting = false);
     }
   }
 
