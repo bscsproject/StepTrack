@@ -10,8 +10,8 @@ class BatteryOptimisationOnboardingScreen extends StatefulWidget {
 
   const BatteryOptimisationOnboardingScreen({
     super.key,
-    this.totalSteps = 9,
-    this.currentStep = 6,
+    this.totalSteps = 8,
+    this.currentStep = 5,
     this.onContinue,
   });
 
@@ -44,6 +44,7 @@ class _BatteryOptimisationOnboardingScreenState
         permissionStatus: status.name,
       );
 
+      if (!mounted) return;
       if (widget.onContinue != null) {
         widget.onContinue!();
       } else {
@@ -57,6 +58,17 @@ class _BatteryOptimisationOnboardingScreenState
           snackPosition: SnackPosition.BOTTOM,
         );
       }
+    } catch (e) {
+      debugPrint('Battery optimisation error: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Battery Setting Error',
+          'Battery optimisation save karte waqt masla aaya.',
+          backgroundColor: const Color(0xFF28181D),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isRequesting = false);
@@ -66,6 +78,9 @@ class _BatteryOptimisationOnboardingScreenState
 
   @override
   Widget build(BuildContext context) {
+    final int safeTotal = widget.totalSteps > 0 ? widget.totalSteps : 8;
+    final int safeStep = widget.currentStep.clamp(0, safeTotal - 1);
+
     return Scaffold(
       backgroundColor: const Color(0xFF080A0C),
       body: SafeArea(
@@ -73,17 +88,17 @@ class _BatteryOptimisationOnboardingScreenState
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 18.0),
           child: Column(
             children: [
-              // 1. Top Segmented Onboarding Progress Bars
+              // 1. Top Segmented Onboarding Progress Bars (8 steps consistent)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28.0),
                 child: Row(
-                  children: List.generate(widget.totalSteps, (index) {
-                    final bool isActive = index <= widget.currentStep;
+                  children: List.generate(safeTotal, (index) {
+                    final bool isActive = index <= safeStep;
                     return Expanded(
                       child: Container(
                         height: 4.5,
                         margin: EdgeInsets.only(
-                          right: index == widget.totalSteps - 1 ? 0 : 8,
+                          right: index == safeTotal - 1 ? 0 : 8,
                         ),
                         decoration: BoxDecoration(
                           color: isActive
@@ -211,7 +226,6 @@ class _BatteryOptimisationPainter extends CustomPainter {
     final double capHeight = size.height * 0.085;
     final double capLeft = (size.width - capWidth) / 2;
 
-    // Top Battery Terminal Cap
     canvas.drawRRect(
       RRect.fromRectAndCorners(
         Rect.fromLTWH(capLeft, size.height * 0.05, capWidth, capHeight),
@@ -221,7 +235,6 @@ class _BatteryOptimisationPainter extends CustomPainter {
       capPaint,
     );
 
-    // Main Battery Body Rect
     final double bodyTop = size.height * 0.145;
     final double bodyLeft = size.width * 0.21;
     final double bodyWidth = size.width * 0.58;
@@ -232,7 +245,6 @@ class _BatteryOptimisationPainter extends CustomPainter {
       const Radius.circular(18),
     );
 
-    // Inner fill area
     const double inset = 6.5;
     final RRect innerClip = RRect.fromRectAndRadius(
       Rect.fromLTWH(
@@ -247,7 +259,6 @@ class _BatteryOptimisationPainter extends CustomPainter {
     canvas.save();
     canvas.clipRRect(innerClip);
 
-    // Dark green upper section
     canvas.drawRect(
       Rect.fromLTWH(
         bodyLeft + inset,
@@ -258,7 +269,6 @@ class _BatteryOptimisationPainter extends CustomPainter {
       emptyTopPaint,
     );
 
-    // Bright green lower charged section
     canvas.drawRect(
       Rect.fromLTWH(
         bodyLeft + inset,
@@ -270,8 +280,6 @@ class _BatteryOptimisationPainter extends CustomPainter {
     );
 
     canvas.restore();
-
-    // Crisp white battery outer border
     canvas.drawRRect(outerBody, bodyOutlinePaint);
   }
 
