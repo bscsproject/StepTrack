@@ -6,12 +6,14 @@ class GoalOnboardingScreen extends StatefulWidget {
   final int totalSteps;
   final int currentStep;
   final VoidCallback? onContinue;
+  final ValueChanged<String>? onGoalSelected;
 
   const GoalOnboardingScreen({
     super.key,
     this.totalSteps = 9,
     this.currentStep = 2,
     this.onContinue,
+    this.onGoalSelected,
   });
 
   @override
@@ -75,16 +77,16 @@ class _GoalOnboardingScreenState extends State<GoalOnboardingScreen> {
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
+    bool savedSuccessfully = false;
     try {
       await _authService.saveUserMainGoal(_selectedGoal);
-
-      if (widget.onContinue != null) {
-        widget.onContinue!();
-      } else {
+      savedSuccessfully = true;
+    } catch (e) {
+      if (mounted) {
         Get.snackbar(
-          'Goal Saved',
-          'Main goal "$_selectedGoal" save ho gaya hai.',
-          backgroundColor: const Color(0xFF15222B),
+          'Save Failed',
+          e.toString(),
+          backgroundColor: Colors.redAccent,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
         );
@@ -93,6 +95,23 @@ class _GoalOnboardingScreenState extends State<GoalOnboardingScreen> {
       if (mounted) {
         setState(() => _isSaving = false);
       }
+    }
+
+    if (!savedSuccessfully || !mounted) return;
+
+    widget.onGoalSelected?.call(_selectedGoal);
+
+    if (widget.onContinue != null) {
+      // Permission screens ke baad is Continue button par next screen open hogi
+      widget.onContinue!();
+    } else {
+      Get.snackbar(
+        'Goal Saved',
+        'Main goal "$_selectedGoal" save ho gaya hai.',
+        backgroundColor: const Color(0xFF15222B),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 

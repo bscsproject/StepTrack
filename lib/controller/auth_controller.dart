@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:step_track/main.dart';
 import 'package:step_track/model/user_model.dart';
 import 'package:step_track/services/auth_service.dart';
 import 'package:step_track/views/auth/create_profile_screen.dart';
@@ -36,7 +35,7 @@ class AuthController extends GetxController {
     Color(0xFFFF4D6D), // Coral Red
   ];
 
-  var selectedColorIndex = 5.obs; // Default pink circle like screenshot
+  var selectedColorIndex = 5.obs;
   var profileName = ''.obs;
   var profileDescription = ''.obs;
   var subscribeNewsletter = true.obs;
@@ -50,9 +49,86 @@ class AuthController extends GetxController {
     selectedColorIndex.value = next;
   }
 
-  // Skip -> Direct Onboarding
+  // =========================================================================
+  // DIRECT STEP-BY-STEP ONBOARDING FLOW (Step 1 -> Step 8 -> HomeScreen)
+  // =========================================================================
+
+  /// Auth complete hone ke baad seedha Step 1 (Motion Sensor) se flow start karta hai
+  void startOnboardingFlow() {
+    Get.offAll(() => _buildStep1MotionSensor());
+  }
+
+  Widget _buildStep1MotionSensor() {
+    return MotionSensorOnboardingScreen(
+      onContinue: () => Get.to(() => _buildStep2SetupMetrics()),
+    );
+  }
+
+  Widget _buildStep2SetupMetrics() {
+    return SetupOnboardingScreen(
+      onContinue: () => Get.to(() => _buildStep3MainGoal()),
+    );
+  }
+
+  Widget _buildStep3MainGoal() {
+    return GoalOnboardingScreen(
+      onContinue: () => Get.to(() => _buildStep4GoalReminder()),
+    );
+  }
+
+  Widget _buildStep4GoalReminder() {
+    return GoalReminderOnboardingScreen(
+      onContinue: () => Get.to(() => _buildStep5DailyCircle()),
+    );
+  }
+
+  Widget _buildStep5DailyCircle() {
+    return DailyCircleOnboardingScreen(
+      onGetStarted: () => Get.to(() => _buildStep6BatteryOptimisation()),
+    );
+  }
+
+  Widget _buildStep6BatteryOptimisation() {
+    return BatteryOptimisationOnboardingScreen(
+      onContinue: () => Get.to(() => _buildStep7EnableAutostart()),
+    );
+  }
+
+  Widget _buildStep7EnableAutostart() {
+    return EnableAutostartOnboardingScreen(
+      onContinue: () => Get.to(() => _buildStep8AllSetUp()),
+    );
+  }
+
+  Widget _buildStep8AllSetUp() {
+    return AllSetOnboardingScreen(
+      onLetsGo: finishOnboardingAndGoHome,
+    );
+  }
+
+  /// Final step ("Go to HomeScreen" / "Let's Go") par completion save karke HomeScreen open karta hai
+  Future<void> finishOnboardingAndGoHome() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      try {
+        isLoading.value = true;
+        await _firestore.collection('users').doc(uid).set({
+          'isOnboardingCompleted': true,
+        }, SetOptions(merge: true));
+      } finally {
+        isLoading.value = false;
+      }
+    }
+    Get.offAll(() => const HomeScreen());
+  }
+
+  // =========================================================================
+  // AUTH ACTIONS
+  // =========================================================================
+
+  // Skip -> Direct Step 1 (Motion Sensor)
   void skipToOnboarding() {
-    Get.offAll(() => const OnboardingScreen());
+    startOnboardingFlow();
   }
 
   // 1. Signup with Email -> Create Profile Screen
@@ -86,7 +162,7 @@ class AuthController extends GetxController {
     }
   }
 
-  // 2. Continue with Google -> Create Profile Screen (agar new/incomplete hai) ya Onboarding
+  // 2. Continue with Google -> Direct Home (agar onboarding completed hai) ya Create Profile
   Future<void> continueWithGoogle() async {
     try {
       isGoogleLoading.value = true;
@@ -95,7 +171,7 @@ class AuthController extends GetxController {
       if (user != null) {
         profileName.value = user.name;
         if (user.isOnboardingCompleted) {
-          Get.offAll(() => const OnboardingScreen());
+          Get.offAll(() => const HomeScreen());
         } else {
           Get.offAll(() => const CreateProfileScreen());
         }
@@ -113,7 +189,7 @@ class AuthController extends GetxController {
     }
   }
 
-  // 3. Login with Email -> Onboarding Screen
+  // 3. Login with Email -> Agar onboarding complete hai to Home, warna Step 1 (Motion Sensor)
   Future<void> signIn({
     required String email,
     required String password,
@@ -127,10 +203,17 @@ class AuthController extends GetxController {
 
       if (user != null) {
         final doc = await _firestore.collection('users').doc(user.uid).get();
-        if (doc.exists && doc.data()?['name'] != null) {
-          profileName.value = doc.data()!['name'];
+        final data = doc.data();
+        if (data != null && data['name'] != null) {
+          profileName.value = data['name'];
         }
-        Get.offAll(() => const OnboardingScreen());
+
+        final bool completed = data?['isOnboardingCompleted'] == true;
+        if (completed) {
+          Get.offAll(() => const HomeScreen());
+        } else {
+          startOnboardingFlow();
+        }
       }
     } catch (e) {
       Get.snackbar(
@@ -171,7 +254,7 @@ class AuthController extends GetxController {
     Get.to(() => const WelcomeUserScreen());
   }
 
-  // 5. Screen 2 ("Welcome!") Continue -> Save Newsletter & Go to OnboardingScreen
+  // 5. Screen 2 ("Welcome!") Continue -> Save Newsletter & Direct Start Step 1 (Motion Sensor)
   Future<void> completeWelcomeToOnboarding() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
@@ -179,196 +262,12 @@ class AuthController extends GetxController {
         isLoading.value = true;
         await _firestore.collection('users').doc(uid).set({
           'subscribeNewsletter': subscribeNewsletter.value,
-          'isOnboardingCompleted': true,
         }, SetOptions(merge: true));
       } finally {
         isLoading.value = false;
       }
     }
 
-    Get.offAll(() => const OnboardingScreen());
-  }
-}
-
-/// Complete Onboarding Flow Navigation for StepTrack
-class OnboardingScreen extends StatelessWidget {
-  const OnboardingScreen({super.key});
-
-  void _openStep(Widget page) {
-    Get.to(() => page);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF080A0C),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'StepTrack Onboarding Flow',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Har step par tap karke ya sequence mein flow test karein:',
-                style: TextStyle(color: Color(0xFF7D858E), fontSize: 14),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: ListView(
-                  children: [
-                    _OnboardingStepTile(
-                      step: '1',
-                      title: 'Motion Sensor',
-                      onTap: () => _openStep(
-                        MotionSensorOnboardingScreen(
-                          onContinue: () => _openStep(
-                            SetupOnboardingScreen(
-                              onContinue: () => _openStep(
-                                GoalOnboardingScreen(
-                                  onContinue: () => _openStep(
-                                    GoalReminderOnboardingScreen(
-                                      onContinue: () => _openStep(
-                                        DailyCircleOnboardingScreen(
-                                          onGetStarted: () => _openStep(
-                                            BatteryOptimisationOnboardingScreen(
-                                              onContinue: () => _openStep(
-                                                EnableAutostartOnboardingScreen(
-                                                  onContinue: () => _openStep(
-                                                    AllSetOnboardingScreen(
-                                                      onLetsGo: () => Get.offAll(
-                                                        () => const HomeScreen(),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    _OnboardingStepTile(
-                      step: '2',
-                      title: 'Setup Metrics',
-                      onTap: () => _openStep(
-  SetupOnboardingScreen(onContinue: () {}),
-),
-                    ),
-                    _OnboardingStepTile(
-                      step: '3',
-                      title: 'Main Goal',
-                      onTap: () => _openStep(const GoalOnboardingScreen()),
-                    ),
-                    _OnboardingStepTile(
-                      step: '4',
-                      title: 'Goal Reminder',
-                      onTap: () =>
-                          _openStep(const GoalReminderOnboardingScreen()),
-                    ),
-                    _OnboardingStepTile(
-                      step: '5',
-                      title: 'Daily Circle',
-                      onTap: () =>
-                          _openStep(const DailyCircleOnboardingScreen()),
-                    ),
-                    _OnboardingStepTile(
-                      step: '6',
-                      title: 'Battery Optimisation',
-                      onTap: () => _openStep(
-                        const BatteryOptimisationOnboardingScreen(),
-                      ),
-                    ),
-                    _OnboardingStepTile(
-                      step: '7',
-                      title: 'Enable Autostart',
-                      onTap: () => _openStep(
-                        const EnableAutostartOnboardingScreen(),
-                      ),
-                    ),
-                    _OnboardingStepTile(
-                      step: '8',
-                      title: "You're All Set Up!",
-                      onTap: () => _openStep(
-                        AllSetOnboardingScreen(
-                          onLetsGo: () => Get.offAll(() => const HomeScreen()),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: () => Get.offAll(() => const HomeScreen()),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4FD0F8),
-                    foregroundColor: const Color(0xFF0A1014),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                  ),
-                  child: const Text(
-                    'Go to HomeScreen',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OnboardingStepTile extends StatelessWidget {
-  final String step;
-  final String title;
-  final VoidCallback onTap;
-
-  const _OnboardingStepTile({
-    required this.step,
-    required this.title,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFF12161B),
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: const Color(0xFF19A7E6),
-          foregroundColor: const Color(0xFF0A1014),
-          child: Text(step, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Color(0xFF4FD0F8)),
-        onTap: onTap,
-      ),
-    );
+    startOnboardingFlow();
   }
 }

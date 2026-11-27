@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+enum _PermanentlyDeniedAction { continueAnyway, openSettings }
+
 class MotionSensorOnboardingScreen extends StatefulWidget {
   final int totalSteps;
   final int currentStep;
-  final VoidCallback? onPermissionGranted;
+  final VoidCallback? onContinue;
+  final ValueChanged<bool>? onPermissionResult;
 
   const MotionSensorOnboardingScreen({
     super.key,
-    this.totalSteps = 9,
+    this.totalSteps = 8,
     this.currentStep = 0,
-    this.onPermissionGranted, required void Function() onContinue,
+    this.onContinue,
+    this.onPermissionResult,
   });
 
   @override
@@ -22,49 +26,90 @@ class MotionSensorOnboardingScreen extends StatefulWidget {
 class _MotionSensorOnboardingScreenState
     extends State<MotionSensorOnboardingScreen> {
   bool _isRequesting = false;
+  bool _hasContinued = false;
 
-  Future<void> _requestMotionPermission() async {
-    if (_isRequesting) return;
+  Future<void> _onAllowButtonPressed() async {
+    if (_isRequesting || _hasContinued) return;
     setState(() => _isRequesting = true);
+
+    bool isGranted = false;
+    bool shouldContinue = false;
 
     try {
       PermissionStatus status = await Permission.activityRecognition.status;
 
-      if (status.isDenied) {
+      if (!status.isGranted &&
+          !status.isLimited &&
+          !status.isPermanentlyDenied) {
         status = await Permission.activityRecognition.request();
       }
 
-      if (status.isGranted || status.isLimited) {
-        if (widget.onPermissionGranted != null) {
-          widget.onPermissionGranted!();
-        } else {
-          Get.snackbar(
-            'Permission Granted',
-            'Motion Sensor / Activity Recognition active ho gaya hai.',
-            backgroundColor: const Color(0xFF15222B),
-            colorText: Colors.white,
-            snackPosition: SnackPosition.BOTTOM,
-          );
-        }
-      } else if (status.isPermanentlyDenied) {
-        Get.snackbar(
-          'Permission Required',
-          'Settings mein ja kar Physical Activity / Motion Sensor permission allow karein.',
-          backgroundColor: Colors.redAccent,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-          mainButton: TextButton(
-            onPressed: () => openAppSettings(),
-            child: const Text(
-              'Open Settings',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      isGranted = status.isGranted || status.isLimited;
+
+      if (!isGranted && status.isPermanentlyDenied && mounted) {
+        final action = await showDialog<_PermanentlyDeniedAction>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF14191F),
+            title: const Text(
+              'Activity Permission Needed',
+              style: TextStyle(color: Colors.white),
             ),
+            content: const Text(
+              'Physical Activity permission helps StepTrack count your steps. '
+              'You can enable it in Settings or continue without it.',
+              style: TextStyle(color: Color(0xFF9EA7B3)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () =>
+                    Navigator.of(ctx)
+                        .pop(_PermanentlyDeniedAction.continueAnyway),
+                child: const Text(
+                  'Continue',
+                  style: TextStyle(color: Color(0xFF7D858E)),
+                ),
+              ),
+              TextButton(
+                onPressed: () =>
+                    Navigator.of(ctx)
+                        .pop(_PermanentlyDeniedAction.openSettings),
+                child: const Text(
+                  'Open Settings',
+                  style: TextStyle(color: Color(0xFF4FD0F8)),
+                ),
+              ),
+            ],
           ),
         );
-      } else {
+
+        if (!mounted || action == null) {
+          return;
+        }
+
+        if (action == _PermanentlyDeniedAction.openSettings) {
+          final settingsOpened = await openAppSettings();
+          if (!settingsOpened && mounted) {
+            Get.snackbar(
+              'Could not open Settings',
+              'You can enable Motion Sensor permission from your device settings.',
+              backgroundColor: const Color(0xFF15222B),
+              colorText: Colors.white,
+              snackPosition: SnackPosition.BOTTOM,
+            );
+          }
+        }
+      }
+
+      shouldContinue = true;
+    } catch (error, stackTrace) {
+      debugPrint('Motion sensor permission request failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
         Get.snackbar(
-          'Permission Denied',
-          'Steps count karne ke liye Motion Sensor permission zaroori hai.',
+          'Permission Error',
+          'Could not check or request Motion Sensor permission.',
           backgroundColor: const Color(0xFF15222B),
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
@@ -72,8 +117,30 @@ class _MotionSensorOnboardingScreenState
       }
     } finally {
       if (mounted) {
-        setState(() => _isRequesting = false);
+        setState(() {
+          _isRequesting = false;
+          if (shouldContinue && widget.onContinue != null) {
+            _hasContinued = true;
+          }
+        });
       }
+    }
+
+    if (!mounted) return;
+    if (!shouldContinue) return;
+
+    widget.onPermissionResult?.call(isGranted);
+
+    if (widget.onContinue != null) {
+      widget.onContinue!();
+    } else {
+      Get.snackbar(
+        'Navigation Missing',
+        'onContinue callback pass nahi kiya gaya.',
+        backgroundColor: const Color(0xFF15222B),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 
@@ -120,9 +187,7 @@ class _MotionSensorOnboardingScreenState
                   color: const Color(0xFF35D41B),
                   borderRadius: BorderRadius.circular(36),
                 ),
-                child: CustomPaint(
-                  painter: _RunnerBadgePainter(),
-                ),
+                child: CustomPaint(painter: _RunnerBadgePainter()),
               ),
 
               const SizedBox(height: 30),
@@ -163,7 +228,7 @@ class _MotionSensorOnboardingScreenState
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: _isRequesting ? null : _requestMotionPermission,
+                  onPressed: _isRequesting ? null : _onAllowButtonPressed,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4FD0F8),
                     foregroundColor: const Color(0xFF0A1014),
@@ -201,7 +266,6 @@ class _MotionSensorOnboardingScreenState
   }
 }
 
-/// Custom Painter for White Running Person + Left Speed Lines inside Green Badge
 class _RunnerBadgePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -215,7 +279,6 @@ class _RunnerBadgePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    // Speed lines on the left (lighter green)
     final speedPaint = Paint()
       ..color = const Color(0xFF7BE668)
       ..strokeWidth = 7.5
@@ -233,14 +296,12 @@ class _RunnerBadgePainter extends CustomPainter {
       speedPaint,
     );
 
-    // Head
     canvas.drawCircle(
       Offset(size.width * 0.62, size.height * 0.24),
       size.width * 0.068,
       whitePaint,
     );
 
-    // Torso
     strokePaint.strokeWidth = 12;
     canvas.drawLine(
       Offset(size.width * 0.58, size.height * 0.34),
@@ -248,7 +309,6 @@ class _RunnerBadgePainter extends CustomPainter {
       strokePaint,
     );
 
-    // Front Arm (reaching forward/up)
     strokePaint.strokeWidth = 9.5;
     final frontArm = Path()
       ..moveTo(size.width * 0.57, size.height * 0.37)
@@ -256,13 +316,11 @@ class _RunnerBadgePainter extends CustomPainter {
       ..lineTo(size.width * 0.78, size.height * 0.35);
     canvas.drawPath(frontArm, strokePaint);
 
-    // Back Arm
     final backArm = Path()
       ..moveTo(size.width * 0.55, size.height * 0.38)
       ..lineTo(size.width * 0.43, size.height * 0.46);
     canvas.drawPath(backArm, strokePaint);
 
-    // Front Leg (striding forward)
     strokePaint.strokeWidth = 11.5;
     final frontLeg = Path()
       ..moveTo(size.width * 0.49, size.height * 0.56)
@@ -270,7 +328,6 @@ class _RunnerBadgePainter extends CustomPainter {
       ..lineTo(size.width * 0.67, size.height * 0.79);
     canvas.drawPath(frontLeg, strokePaint);
 
-    // Back Leg (pushing off)
     final backLeg = Path()
       ..moveTo(size.width * 0.49, size.height * 0.56)
       ..lineTo(size.width * 0.36, size.height * 0.67)
