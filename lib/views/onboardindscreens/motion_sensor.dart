@@ -67,7 +67,7 @@ class _MotionSensorOnboardingScreenState
     if (!mounted || _hasContinued) return;
 
     widget.onPermissionResult?.call(isGranted);
-    widget.onContinue();
+    widget.onContinue?.call();
     _hasContinued = true;
   }
 
