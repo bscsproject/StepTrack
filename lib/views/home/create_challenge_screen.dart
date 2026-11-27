@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,8 +42,7 @@ class StepTrackChallengeModel {
     this.completedDayIndices = const [],
   });
 
-  DateTime get startDate =>
-      DateTime.tryParse(startDateIso) ?? DateTime.now();
+  DateTime get startDate => DateTime.tryParse(startDateIso) ?? DateTime.now();
 
   DateTime get endDate =>
       startDate.add(Duration(days: durationDays > 0 ? durationDays : 7));
@@ -111,9 +111,9 @@ class StepTrackChallengeModel {
     final rawDays = map['completedDayIndices'];
     final parsedDays = rawDays is List
         ? rawDays
-            .map((e) => int.tryParse(e.toString()) ?? -1)
-            .where((i) => i >= 0)
-            .toList()
+              .map((e) => int.tryParse(e.toString()) ?? -1)
+              .where((i) => i >= 0)
+              .toList()
         : const <int>[];
 
     return StepTrackChallengeModel(
@@ -153,8 +153,10 @@ class ChallengeStorageHelper {
       if (decoded is List) {
         return decoded
             .whereType()
-            .map((e) =>
-                StepTrackChallengeModel.fromMap(Map<String, dynamic>.from(e)))
+            .map(
+              (e) =>
+                  StepTrackChallengeModel.fromMap(Map<String, dynamic>.from(e)),
+            )
             .where((c) => c.id.isNotEmpty)
             .toList();
       }
@@ -222,22 +224,9 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     'Active Streak',
   ];
 
-  final List<int> _goalOptions = const [
-    5000,
-    6000,
-    8000,
-    10000,
-    12000,
-    15000,
-  ];
+  final List<int> _goalOptions = const [5000, 6000, 8000, 10000, 12000, 15000];
 
-  final List<int> _durationOptions = const [
-    3,
-    7,
-    14,
-    21,
-    30,
-  ];
+  final List<int> _durationOptions = const [3, 7, 14, 21, 30];
 
   final List<String> _chatOptions = const [
     'Everyone',
@@ -270,8 +259,9 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     } else {
       _title = 'Daily Steps Challenge';
       _challengeType = 'Daily Steps';
-      _goalSteps =
-          widget.defaultTargetSteps > 0 ? widget.defaultTargetSteps : 10000;
+      _goalSteps = widget.defaultTargetSteps > 0
+          ? widget.defaultTargetSteps
+          : 10000;
       _durationDays = 7;
       _accentColorValue = 0xFFFFB300;
       _isPublic = false;
@@ -331,8 +321,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
                   opt,
                   style: TextStyle(
                     color: selected ? const Color(0xFF4FD0F8) : Colors.white,
-                    fontWeight:
-                        selected ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
                 trailing: selected
@@ -463,8 +452,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
                   '$days days',
                   style: TextStyle(
                     color: selected ? const Color(0xFF4FD0F8) : Colors.white,
-                    fontWeight:
-                        selected ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
                 trailing: selected
@@ -583,7 +571,9 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
 
       final challenge = widget.initialChallenge != null
           ? widget.initialChallenge!.copyWith(
-              title: _title.trim().isEmpty ? 'Daily Steps Challenge' : _title.trim(),
+              title: _title.trim().isEmpty
+                  ? 'Daily Steps Challenge'
+                  : _title.trim(),
               challengeType: _challengeType,
               dailyGoalSteps: _goalSteps,
               durationDays: _durationDays,
@@ -595,7 +585,9 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
             )
           : StepTrackChallengeModel(
               id: 'chl_${now.millisecondsSinceEpoch}',
-              title: _title.trim().isEmpty ? 'Daily Steps Challenge' : _title.trim(),
+              title: _title.trim().isEmpty
+                  ? 'Daily Steps Challenge'
+                  : _title.trim(),
               challengeType: _challengeType,
               dailyGoalSteps: _goalSteps,
               durationDays: _durationDays,
@@ -1039,8 +1031,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
               // 7. Public & Discoverable Toggle
               _SwitchSettingTile(
                 title: 'Public & Discoverable',
-                subtitle:
-                    'Anyone can discover this challenge in search and recommendations.',
+                subtitle: 'Anyone can discover this challenge in search and recommendations.',
                 value: _isPublic,
                 onChanged: (val) => setState(() => _isPublic = val),
               ),
@@ -1113,8 +1104,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
               // 9. Recurring Challenge Toggle
               _SwitchSettingTile(
                 title: 'Recurring Challenge',
-                subtitle:
-                    'Recurring challenges restart automatically with the same participants and settings.',
+                subtitle: 'Recurring challenges restart automatically with the same participants and settings.',
                 value: _isRecurring,
                 onChanged: (val) => setState(() => _isRecurring = val),
               ),
@@ -1124,8 +1114,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
               // 10. Team Mode Toggle
               _SwitchSettingTile(
                 title: 'Team Mode',
-                subtitle:
-                    'Allow participants to form teams within a challenge and compete as a group. Some challenge goal types cannot be used with Team Mode.',
+                subtitle: 'Allow participants to form teams within a challenge and compete as a group. Some challenge goal types cannot be used with Team Mode.',
                 value: _isTeamMode,
                 onChanged: (val) => setState(() => _isTeamMode = val),
               ),
@@ -1352,18 +1341,21 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
             onPressed: () async {
               final friend = ctrl.text.trim();
               if (friend.isNotEmpty) {
-                final updatedParticipants =
-                    List<String>.from(_challenge.participants)..add(friend);
-                final updated =
-                    _challenge.copyWith(participants: updatedParticipants);
+                final updatedParticipants = List<String>.from(
+                  _challenge.participants,
+                )..add(friend);
+                final updated = _challenge.copyWith(
+                  participants: updatedParticipants,
+                );
                 setState(() => _challenge = updated);
                 final saved = await _persistChallengeChange(updated);
                 if (!saved || !mounted) return;
 
                 final existingInvites = _authService.getCachedInvitedFriends();
-                await _authService.saveInvitedFriends(
-                  [...existingInvites, friend],
-                );
+                await _authService.saveInvitedFriends([
+                  ...existingInvites,
+                  friend,
+                ]);
                 if (!mounted) return;
                 if (ModalRoute.of(context)?.isCurrent == false) {
                   Get.back();
@@ -1382,8 +1374,9 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
   }
 
   Future<void> _toggleHideInHomeTab() async {
-    final updated =
-        _challenge.copyWith(hiddenInHomeTab: !_challenge.hiddenInHomeTab);
+    final updated = _challenge.copyWith(
+      hiddenInHomeTab: !_challenge.hiddenInHomeTab,
+    );
     setState(() => _challenge = updated);
     final saved = await _persistChallengeChange(updated);
     if (!saved || !mounted) return;
@@ -1427,12 +1420,15 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
         builder: (context, setDialogState) {
           return AlertDialog(
             backgroundColor: const Color(0xFF141920),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             title: const Text(
               'Challenge Settings',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1476,6 +1472,7 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
               ),
               ElevatedButton(
                 onPressed: () async {
+                  final dialogContext = context;
                   final updated = _challenge.copyWith(
                     isPublic: publicVal,
                     isRecurring: recurringVal,
@@ -1483,9 +1480,8 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
                   );
                   setState(() => _challenge = updated);
                   final saved = await _persistChallengeChange(updated);
-                  if (saved && mounted &&
-                      ModalRoute.of(context)?.isCurrent == false) {
-                    Get.back();
+                  if (saved && dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -1552,15 +1548,16 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
                           color: Color(0xFFFF5252),
                         ),
                         onPressed: () async {
-                          final nextMembers =
-                              List<String>.from(_challenge.participants)
-                                ..removeAt(idx);
+                          final nextMembers = List<String>.from(
+                            _challenge.participants,
+                          )..removeAt(idx);
                           final updated = _challenge.copyWith(
                             participants: nextMembers,
                           );
                           setState(() => _challenge = updated);
                           final saved = await _persistChallengeChange(updated);
-                          if (saved && mounted &&
+                          if (saved &&
+                              mounted &&
                               ModalRoute.of(context)?.isCurrent == false) {
                             Get.back();
                           }
@@ -1766,7 +1763,8 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: List.generate(dayLetters.length, (i) {
-                            final done = _challenge.completedDayIndices.contains(i);
+                            final done = _challenge.completedDayIndices
+                                .contains(i);
                             return Expanded(
                               child: Column(
                                 children: [
