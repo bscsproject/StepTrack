@@ -253,6 +253,20 @@ class AuthService {
     required bool reminderEnabled,
     required String permissionStatus,
   }) async {
+    await saveGoalReminderPermissionLocally(
+      reminderEnabled: reminderEnabled,
+      permissionStatus: permissionStatus,
+    );
+    await syncGoalReminderPermission(
+      reminderEnabled: reminderEnabled,
+      permissionStatus: permissionStatus,
+    );
+  }
+
+  Future<void> saveGoalReminderPermissionLocally({
+    required bool reminderEnabled,
+    required String permissionStatus,
+  }) async {
     final currentAuthUser = _auth.currentUser;
     final existing = _getExistingUser(currentAuthUser);
 
@@ -274,7 +288,13 @@ class AuthService {
 
     await _box.put(_currentUserKey, jsonEncode(updatedMap));
     await _box.put('user_$uid', jsonEncode(updatedMap));
+  }
 
+  Future<void> syncGoalReminderPermission({
+    required bool reminderEnabled,
+    required String permissionStatus,
+  }) async {
+    final currentAuthUser = _auth.currentUser;
     if (currentAuthUser != null) {
       await _firestore.collection('users').doc(currentAuthUser.uid).set({
         'goalReminderEnabled': reminderEnabled,

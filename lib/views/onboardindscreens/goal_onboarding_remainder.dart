@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -38,7 +40,7 @@ class _GoalReminderOnboardingScreenState
 
       final bool isAllowed = status.isGranted || status.isLimited;
 
-      await _authService.saveGoalReminderPermission(
+      await _authService.saveGoalReminderPermissionLocally(
         reminderEnabled: isAllowed,
         permissionStatus: status.name,
       );
@@ -67,7 +69,12 @@ class _GoalReminderOnboardingScreenState
 
       if (widget.onContinue != null) {
         widget.onContinue!();
+        unawaited(_syncPermissionToCloud(isAllowed, status.name));
       } else {
+        await _authService.syncGoalReminderPermission(
+          reminderEnabled: isAllowed,
+          permissionStatus: status.name,
+        );
         Get.snackbar(
           isAllowed ? 'Reminders Enabled' : 'Saved',
           isAllowed
@@ -93,6 +100,29 @@ class _GoalReminderOnboardingScreenState
       if (mounted) {
         setState(() => _isRequesting = false);
       }
+    }
+  }
+
+  Future<void> _syncPermissionToCloud(
+    bool reminderEnabled,
+    String permissionStatus,
+  ) async {
+    try {
+      await _authService.syncGoalReminderPermission(
+        reminderEnabled: reminderEnabled,
+        permissionStatus: permissionStatus,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Notification permission cloud sync failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      Get.snackbar(
+        'Cloud Sync Failed',
+        'Your notification preference is saved on this device, '
+            "but couldn't be synced to your account.",
+        backgroundColor: const Color(0xFF28181D),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 
@@ -142,9 +172,7 @@ class _GoalReminderOnboardingScreenState
                   color: const Color(0xFF35D41B),
                   borderRadius: BorderRadius.circular(36),
                 ),
-                child: CustomPaint(
-                  painter: _BellBadgePainter(),
-                ),
+                child: CustomPaint(painter: _BellBadgePainter()),
               ),
 
               const SizedBox(height: 30),
@@ -185,8 +213,9 @@ class _GoalReminderOnboardingScreenState
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed:
-                      _isRequesting ? null : _requestNotificationAndContinue,
+                  onPressed: _isRequesting
+                      ? null
+                      : _requestNotificationAndContinue,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4FD0F8),
                     foregroundColor: const Color(0xFF0A1014),

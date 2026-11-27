@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -14,7 +16,7 @@ class MotionSensorOnboardingScreen extends StatefulWidget {
     super.key,
     this.totalSteps = 8,
     this.currentStep = 0,
-    this.onContinue,
+    required this.onContinue,
     this.onPermissionResult,
   });
 
@@ -24,9 +26,50 @@ class MotionSensorOnboardingScreen extends StatefulWidget {
 }
 
 class _MotionSensorOnboardingScreenState
-    extends State<MotionSensorOnboardingScreen> {
+    extends State<MotionSensorOnboardingScreen>
+    with WidgetsBindingObserver {
   bool _isRequesting = false;
   bool _hasContinued = false;
+  bool _waitingForSettings = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_continueIfPermissionIsGranted());
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _waitingForSettings) {
+      _waitingForSettings = false;
+      unawaited(_continueIfPermissionIsGranted());
+    }
+  }
+
+  Future<void> _continueIfPermissionIsGranted() async {
+    if (!mounted || _hasContinued) return;
+
+    try {
+      final status = await Permission.activityRecognition.status;
+      if (status.isGranted || status.isLimited) {
+        _continueToNextStep(isGranted: true);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Could not recheck Motion Sensor permission: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  void _continueToNextStep({required bool isGranted}) {
+    if (!mounted || _hasContinued) return;
+
+    widget.onPermissionResult?.call(isGranted);
+    widget.onContinue();
+    _hasContinued = true;
+  }
 
   Future<void> _onAllowButtonPressed() async {
     if (_isRequesting || _hasContinued) return;
@@ -62,16 +105,18 @@ class _MotionSensorOnboardingScreenState
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(ctx)
-                    .pop(_PermanentlyDeniedAction.continueAnyway),
+                onPressed: () => Navigator.of(
+                  ctx,
+                ).pop(_PermanentlyDeniedAction.continueAnyway),
                 child: const Text(
                   'Continue',
                   style: TextStyle(color: Color(0xFF7D858E)),
                 ),
               ),
               TextButton(
-                onPressed: () => Navigator.of(ctx)
-                    .pop(_PermanentlyDeniedAction.openSettings),
+                onPressed: () => Navigator.of(
+                  ctx,
+                ).pop(_PermanentlyDeniedAction.openSettings),
                 child: const Text(
                   'Open Settings',
                   style: TextStyle(color: Color(0xFF4FD0F8)),
@@ -86,28 +131,29 @@ class _MotionSensorOnboardingScreenState
         }
 
         if (action == _PermanentlyDeniedAction.openSettings) {
+          _waitingForSettings = true;
           final settingsOpened = await openAppSettings();
-          if (!settingsOpened && mounted) {
-            Get.snackbar(
-              'Could not open Settings',
-              'You can enable Motion Sensor permission from your device settings.',
-              backgroundColor: const Color(0xFF15222B),
-              colorText: Colors.white,
-              snackPosition: SnackPosition.BOTTOM,
-            );
+          if (!settingsOpened) {
+            _waitingForSettings = false;
+            if (mounted) {
+              Get.snackbar(
+                'Could not open Settings',
+                'You can enable Motion Sensor permission from your device settings.',
+                backgroundColor: const Color(0xFF15222B),
+                colorText: Colors.white,
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            }
           }
           return;
         }
       }
 
-      widget.onPermissionResult?.call(isGranted);
-
-      if (!mounted) return;
-      _hasContinued = true;
-      widget.onContinue?.call();
+      _continueToNextStep(isGranted: isGranted);
     } catch (error, stackTrace) {
       debugPrint('Permission request failed: $error');
       debugPrintStack(stackTrace: stackTrace);
+      _hasContinued = false;
       if (mounted) {
         Get.snackbar(
           'Permission Error',
@@ -120,6 +166,12 @@ class _MotionSensorOnboardingScreenState
     } finally {
       if (mounted) setState(() => _isRequesting = false);
     }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
