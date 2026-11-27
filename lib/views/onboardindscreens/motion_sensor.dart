@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -36,68 +37,71 @@ class _MotionSensorOnboardingScreenState
     bool shouldContinue = false;
 
     try {
-      PermissionStatus status = await Permission.activityRecognition.status;
+      final Permission? motionPermission = kIsWeb
+          ? null
+          : switch (defaultTargetPlatform) {
+              TargetPlatform.android => Permission.activityRecognition,
+              TargetPlatform.iOS => Permission.sensors,
+              _ => null,
+            };
 
-      if (!status.isGranted &&
-          !status.isLimited &&
-          !status.isPermanentlyDenied) {
-        status = await Permission.activityRecognition.request();
-      }
+      if (motionPermission != null) {
+        final status = await motionPermission.request();
+        isGranted = status.isGranted || status.isLimited;
 
-      isGranted = status.isGranted || status.isLimited;
-
-      if (!isGranted && status.isPermanentlyDenied && mounted) {
-        final action = await showDialog<_PermanentlyDeniedAction>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF14191F),
-            title: const Text(
-              'Activity Permission Needed',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: const Text(
-              'Physical Activity permission helps StepTrack count your steps. '
-              'You can enable it in Settings or continue without it.',
-              style: TextStyle(color: Color(0xFF9EA7B3)),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () =>
-                    Navigator.of(ctx)
-                        .pop(_PermanentlyDeniedAction.continueAnyway),
-                child: const Text(
-                  'Continue',
-                  style: TextStyle(color: Color(0xFF7D858E)),
-                ),
+        if (!isGranted && status.isPermanentlyDenied && mounted) {
+          final action = await showDialog<_PermanentlyDeniedAction>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: const Color(0xFF14191F),
+              title: const Text(
+                'Activity Permission Needed',
+                style: TextStyle(color: Colors.white),
               ),
-              TextButton(
-                onPressed: () =>
-                    Navigator.of(ctx)
-                        .pop(_PermanentlyDeniedAction.openSettings),
-                child: const Text(
-                  'Open Settings',
-                  style: TextStyle(color: Color(0xFF4FD0F8)),
-                ),
+              content: const Text(
+                'Physical Activity permission helps StepTrack count your steps. '
+                'You can enable it in Settings or continue without it.',
+                style: TextStyle(color: Color(0xFF9EA7B3)),
               ),
-            ],
-          ),
-        );
+              actions: [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(ctx)
+                          .pop(_PermanentlyDeniedAction.continueAnyway),
+                  child: const Text(
+                    'Continue',
+                    style: TextStyle(color: Color(0xFF7D858E)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(ctx)
+                          .pop(_PermanentlyDeniedAction.openSettings),
+                  child: const Text(
+                    'Open Settings',
+                    style: TextStyle(color: Color(0xFF4FD0F8)),
+                  ),
+                ),
+              ],
+            ),
+          );
 
-        if (!mounted || action == null) {
-          return;
-        }
+          if (!mounted || action == null) {
+            return;
+          }
 
-        if (action == _PermanentlyDeniedAction.openSettings) {
-          final settingsOpened = await openAppSettings();
-          if (!settingsOpened && mounted) {
-            Get.snackbar(
-              'Could not open Settings',
-              'You can enable Motion Sensor permission from your device settings.',
-              backgroundColor: const Color(0xFF15222B),
-              colorText: Colors.white,
-              snackPosition: SnackPosition.BOTTOM,
-            );
+          if (action == _PermanentlyDeniedAction.openSettings) {
+            final settingsOpened = await openAppSettings();
+            if (!settingsOpened && mounted) {
+              Get.snackbar(
+                'Could not open Settings',
+                'You can enable Motion Sensor permission from your device settings.',
+                backgroundColor: const Color(0xFF15222B),
+                colorText: Colors.white,
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            }
           }
         }
       }
@@ -115,6 +119,7 @@ class _MotionSensorOnboardingScreenState
           snackPosition: SnackPosition.BOTTOM,
         );
       }
+      shouldContinue = true;
     } finally {
       if (mounted) {
         setState(() {
