@@ -1,10 +1,13 @@
-
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
+import 'package:step_track/controller/auth_controller.dart';
 import 'package:step_track/core/app_theme.dart';
 import 'package:step_track/views/auth/welcome_auth_screen.dart';
+import 'package:step_track/views/home/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,16 +18,61 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   Timer? _timer;
+  bool _isRouting = false;
 
   @override
   void initState() {
     super.initState();
 
-    _timer = Timer(const Duration(seconds: 3), () {
+    _timer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      unawaited(_routeUser());
+    });
+  }
+
+  Future<void> _routeUser() async {
+    if (_isRouting) return;
+    _isRouting = true;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        if (!mounted) return;
+        Get.offAll(() =>  WelcomeAuthScreen());
+        return;
+      }
+
+      bool isOnboardingDone = false;
+      const boxName = 'steptrack_auth_box';
+
+      if (Hive.isBoxOpen(boxName)) {
+        final box = Hive.box(boxName);
+        isOnboardingDone = box.get('onboarding_done_${user.uid}') == true;
+      } else {
+        try {
+          final box = await Hive.openBox(boxName);
+          isOnboardingDone = box.get('onboarding_done_${user.uid}') == true;
+        } catch (e) {
+          debugPrint('Splash Hive read error: $e');
+        }
+      }
+
       if (!mounted) return;
 
-      Get.offAll(() => WelcomeAuthScreen());
-    });
+      if (isOnboardingDone) {
+        Get.offAll(() => const HomeScreen());
+      } else if (Get.isRegistered<AuthController>()) {
+        Get.find<AuthController>().startOnboardingFlow();
+      } else {
+        Get.offAll(() =>  WelcomeAuthScreen());
+      }
+    } catch (e) {
+      debugPrint('Splash routing error: $e');
+      if (!mounted) return;
+      Get.offAll(() =>  WelcomeAuthScreen());
+    } finally {
+      _isRouting = false;
+    }
   }
 
   @override
@@ -63,8 +111,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF8265FF)
-                            .withValues(alpha: 0.20),
+                        color: const Color(0xFF8265FF).withValues(alpha: 0.20),
                         blurRadius: 35,
                         spreadRadius: 2,
                       ),

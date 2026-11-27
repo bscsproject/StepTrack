@@ -10,8 +10,8 @@ class EnableAutostartOnboardingScreen extends StatefulWidget {
 
   const EnableAutostartOnboardingScreen({
     super.key,
-    this.totalSteps = 9,
-    this.currentStep = 7,
+    this.totalSteps = 8,
+    this.currentStep = 6,
     this.onContinue,
   });
 
@@ -28,11 +28,33 @@ class _EnableAutostartOnboardingScreenState
 
   Future<void> _onOpenSettingsPressed() async {
     _settingsOpened = true;
-    await _authService.saveAutostartStatus(
-      autostartSettingsOpened: true,
-      actionSource: 'open_settings',
-    );
-    await openAppSettings();
+    try {
+      await _authService.saveAutostartStatus(
+        autostartSettingsOpened: true,
+        actionSource: 'open_settings',
+      );
+      final opened = await openAppSettings();
+      if (!opened && mounted) {
+        Get.snackbar(
+          'Settings Unavailable',
+          'Device settings se StepTrack ke liye Autostart / Background run enable karein.',
+          backgroundColor: const Color(0xFF15222B),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } catch (e) {
+      debugPrint('Open autostart settings error: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Settings Error',
+          'Settings kholne mein masla aaya.',
+          backgroundColor: const Color(0xFF28181D),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    }
   }
 
   Future<void> _onContinuePressed() async {
@@ -45,6 +67,7 @@ class _EnableAutostartOnboardingScreenState
         actionSource: 'continue',
       );
 
+      if (!mounted) return;
       if (widget.onContinue != null) {
         widget.onContinue!();
       } else {
@@ -52,6 +75,17 @@ class _EnableAutostartOnboardingScreenState
           'Autostart Saved',
           'Aapki autostart preference save ho gayi hai.',
           backgroundColor: const Color(0xFF15222B),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } catch (e) {
+      debugPrint('Save autostart status error: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Save Failed',
+          'Autostart status save karte waqt masla aaya.',
+          backgroundColor: const Color(0xFF28181D),
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
         );
@@ -65,6 +99,9 @@ class _EnableAutostartOnboardingScreenState
 
   @override
   Widget build(BuildContext context) {
+    final int safeTotal = widget.totalSteps > 0 ? widget.totalSteps : 8;
+    final int safeStep = widget.currentStep.clamp(0, safeTotal - 1);
+
     return Scaffold(
       backgroundColor: const Color(0xFF080A0C),
       body: SafeArea(
@@ -72,17 +109,17 @@ class _EnableAutostartOnboardingScreenState
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 18.0),
           child: Column(
             children: [
-              // 1. Top Segmented Onboarding Progress Bars
+              // 1. Top Segmented Onboarding Progress Bars (8 steps consistent)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28.0),
                 child: Row(
-                  children: List.generate(widget.totalSteps, (index) {
-                    final bool isActive = index <= widget.currentStep;
+                  children: List.generate(safeTotal, (index) {
+                    final bool isActive = index <= safeStep;
                     return Expanded(
                       child: Container(
                         height: 4.5,
                         margin: EdgeInsets.only(
-                          right: index == widget.totalSteps - 1 ? 0 : 8,
+                          right: index == safeTotal - 1 ? 0 : 8,
                         ),
                         decoration: BoxDecoration(
                           color: isActive
@@ -235,14 +272,11 @@ class _AutostartRingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    // Subtle dark track
     canvas.drawCircle(center, radius, trackPaint);
 
-    // Bright green arc starting near top-left arrow and sweeping clockwise
     final rect = Rect.fromCircle(center: center, radius: radius);
     canvas.drawArc(rect, -1.75, 5.45, false, greenArcPaint);
 
-    // Top-left pointing arrowhead
     const arrowTip = Offset(44, 24);
     final arrowPath = Path()
       ..moveTo(arrowTip.dx - 11, arrowTip.dy + 2)

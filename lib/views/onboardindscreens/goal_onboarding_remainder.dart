@@ -10,7 +10,7 @@ class GoalReminderOnboardingScreen extends StatefulWidget {
 
   const GoalReminderOnboardingScreen({
     super.key,
-    this.totalSteps = 9,
+    this.totalSteps = 8,
     this.currentStep = 3,
     this.onContinue,
   });
@@ -43,6 +43,8 @@ class _GoalReminderOnboardingScreenState
         permissionStatus: status.name,
       );
 
+      if (!mounted) return;
+
       if (status.isPermanentlyDenied) {
         Get.snackbar(
           'Notifications Disabled',
@@ -54,7 +56,10 @@ class _GoalReminderOnboardingScreenState
             onPressed: () => openAppSettings(),
             child: const Text(
               'Open Settings',
-              style: TextStyle(color: Color(0xFF4FD0F8), fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Color(0xFF4FD0F8),
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         );
@@ -73,6 +78,17 @@ class _GoalReminderOnboardingScreenState
           snackPosition: SnackPosition.BOTTOM,
         );
       }
+    } catch (e) {
+      debugPrint('Notification permission error: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Reminder Error',
+          'Notification preference save karte waqt masla aaya.',
+          backgroundColor: const Color(0xFF28181D),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isRequesting = false);
@@ -82,6 +98,9 @@ class _GoalReminderOnboardingScreenState
 
   @override
   Widget build(BuildContext context) {
+    final int safeTotal = widget.totalSteps > 0 ? widget.totalSteps : 8;
+    final int safeStep = widget.currentStep.clamp(0, safeTotal - 1);
+
     return Scaffold(
       backgroundColor: const Color(0xFF080A0C),
       body: SafeArea(
@@ -89,17 +108,17 @@ class _GoalReminderOnboardingScreenState
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 18.0),
           child: Column(
             children: [
-              // 1. Top Segmented Onboarding Progress Bars (4th bar active)
+              // 1. Top Segmented Onboarding Progress Bars (8 steps consistent)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28.0),
                 child: Row(
-                  children: List.generate(widget.totalSteps, (index) {
-                    final bool isActive = index == widget.currentStep;
+                  children: List.generate(safeTotal, (index) {
+                    final bool isActive = index <= safeStep;
                     return Expanded(
                       child: Container(
                         height: 4.5,
                         margin: EdgeInsets.only(
-                          right: index == widget.totalSteps - 1 ? 0 : 8,
+                          right: index == safeTotal - 1 ? 0 : 8,
                         ),
                         decoration: BoxDecoration(
                           color: isActive
@@ -221,7 +240,6 @@ class _BellBadgePainter extends CustomPainter {
 
     final cx = size.width * 0.5;
 
-    // Left outer & inner wave arcs
     canvas.drawArc(
       Rect.fromCenter(
         center: Offset(cx, size.height * 0.49),
@@ -234,7 +252,6 @@ class _BellBadgePainter extends CustomPainter {
       wavePaint,
     );
 
-    // Right outer & inner wave arcs
     canvas.drawArc(
       Rect.fromCenter(
         center: Offset(cx, size.height * 0.49),
@@ -247,14 +264,12 @@ class _BellBadgePainter extends CustomPainter {
       wavePaint,
     );
 
-    // Top bell knob
     canvas.drawCircle(
       Offset(cx, size.height * 0.235),
       size.width * 0.042,
       whitePaint,
     );
 
-    // Bell dome & flared rim
     final bellPath = Path()
       ..moveTo(cx - size.width * 0.16, size.height * 0.58)
       ..quadraticBezierTo(
@@ -275,7 +290,6 @@ class _BellBadgePainter extends CustomPainter {
 
     canvas.drawPath(bellPath, whitePaint);
 
-    // Bottom clapper
     canvas.drawCircle(
       Offset(cx, size.height * 0.71),
       size.width * 0.058,

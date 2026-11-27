@@ -24,6 +24,10 @@ dependencies:
   url_launcher: ^6.3.3
   pedometer: ^4.2.0
   intl: ^0.20.3
+<<<<<<< HEAD
+=======
+  android_intent_plus: ^6.1.0
+>>>>>>> b628e8f69a401f90e4c880352f317247e85f5ee9
 
 dev_dependencies:
   flutter_test:

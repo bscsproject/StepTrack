@@ -13,7 +13,7 @@ class DailyCircleOnboardingScreen extends StatefulWidget {
 
   const DailyCircleOnboardingScreen({
     super.key,
-    this.totalSteps = 9,
+    this.totalSteps = 8,
     this.currentStep = 4,
     this.onGetStarted,
     this.onSkip,
@@ -91,38 +91,58 @@ class _DailyCircleOnboardingScreenState
       }
     });
 
-    await _authService.saveInvitedFriends(_invitedIds.toList());
+    try {
+      await _authService.saveInvitedFriends(_invitedIds.toList());
 
-    if (!alreadyInvited) {
-      const inviteCode = 'STEPTRACK-CIRCLE';
-      await Clipboard.setData(const ClipboardData(text: inviteCode));
+      if (!alreadyInvited) {
+        const inviteCode = 'STEPTRACK-CIRCLE';
+        await Clipboard.setData(const ClipboardData(text: inviteCode));
 
-      unawaited(
-        SharePlus.instance.share(
-          ShareParams(
-            text:
-                'Join my Daily Circle on StepTrack! Use invite code: $inviteCode',
-          ),
-        ),
-      );
+        unawaited(
+          SharePlus.instance
+              .share(
+                ShareParams(
+                  text:
+                      'Join my Daily Circle on StepTrack! Use invite code: $inviteCode',
+                ),
+              )
+              .catchError((e) {
+                debugPrint('Share error: $e');
+                return ShareResult('', ShareResultStatus.unavailable);
+              }),
+        );
 
-      Get.snackbar(
-        'Invite Sent',
-        '${friend.name} ko invite add kar diya gaya hai (Code: $inviteCode copied).',
-        backgroundColor: const Color(0xFF15222B),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-      );
-    } else {
-      Get.snackbar(
-        'Invite Removed',
-        '${friend.name} ko invite list se hata diya gaya hai.',
-        backgroundColor: const Color(0xFF15222B),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-      );
+        if (!mounted) return;
+        Get.snackbar(
+          'Invite Sent',
+          '${friend.name} ko invite add kar diya gaya hai (Code:$inviteCode copied).',
+          backgroundColor: const Color(0xFF15222B),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+      } else {
+        if (!mounted) return;
+        Get.snackbar(
+          'Invite Removed',
+          '${friend.name} ko invite list se hata diya gaya hai.',
+          backgroundColor: const Color(0xFF15222B),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+      }
+    } catch (e) {
+      debugPrint('Toggle invite error: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Update Failed',
+          'Invite update karte waqt masla aaya.',
+          backgroundColor: const Color(0xFF28181D),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     }
   }
 
@@ -138,6 +158,7 @@ class _DailyCircleOnboardingScreenState
         isOnboardingCompleted: true,
       );
 
+      if (!mounted) return;
       if (widget.onGetStarted != null) {
         widget.onGetStarted!();
       } else {
@@ -145,6 +166,17 @@ class _DailyCircleOnboardingScreenState
           'All Set!',
           'Aapka Daily Circle aur onboarding setup save ho gaya hai.',
           backgroundColor: const Color(0xFF15222B),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } catch (e) {
+      debugPrint('Daily circle save error: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Save Failed',
+          'Setup save karte waqt masla aaya. Dobara koshish karein.',
+          backgroundColor: const Color(0xFF28181D),
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
         );
@@ -166,6 +198,9 @@ class _DailyCircleOnboardingScreenState
 
   @override
   Widget build(BuildContext context) {
+    final int safeTotal = widget.totalSteps > 0 ? widget.totalSteps : 8;
+    final int safeStep = widget.currentStep.clamp(0, safeTotal - 1);
+
     return Scaffold(
       backgroundColor: const Color(0xFF080A0C),
       body: SafeArea(
@@ -179,13 +214,13 @@ class _DailyCircleOnboardingScreenState
                   const SizedBox(width: 44),
                   Expanded(
                     child: Row(
-                      children: List.generate(widget.totalSteps, (index) {
-                        final bool isActive = index <= widget.currentStep;
+                      children: List.generate(safeTotal, (index) {
+                        final bool isActive = index <= safeStep;
                         return Expanded(
                           child: Container(
                             height: 4.5,
                             margin: EdgeInsets.only(
-                              right: index == widget.totalSteps - 1 ? 0 : 7,
+                              right: index == safeTotal - 1 ? 0 : 7,
                             ),
                             decoration: BoxDecoration(
                               color: isActive

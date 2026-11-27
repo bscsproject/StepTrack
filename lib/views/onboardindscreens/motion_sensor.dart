@@ -24,7 +24,7 @@ class MotionSensorOnboardingScreen extends StatefulWidget {
 }
 
 class _MotionSensorOnboardingScreenState
-    extends State<MotionSensorOnboardingScreen> with WidgetsBindingObserver {
+    extends State<MotionSensorOnboardingScreen> {
   bool _isRequesting = false;
   bool _hasContinued = false;
 
@@ -33,7 +33,6 @@ class _MotionSensorOnboardingScreenState
     setState(() => _isRequesting = true);
 
     bool isGranted = false;
-    bool shouldContinue = false;
 
     try {
       PermissionStatus status = await Permission.activityRecognition.status;
@@ -63,18 +62,16 @@ class _MotionSensorOnboardingScreenState
             ),
             actions: [
               TextButton(
-                onPressed: () =>
-                    Navigator.of(ctx)
-                        .pop(_PermanentlyDeniedAction.continueAnyway),
+                onPressed: () => Navigator.of(ctx)
+                    .pop(_PermanentlyDeniedAction.continueAnyway),
                 child: const Text(
                   'Continue',
                   style: TextStyle(color: Color(0xFF7D858E)),
                 ),
               ),
               TextButton(
-                onPressed: () =>
-                    Navigator.of(ctx)
-                        .pop(_PermanentlyDeniedAction.openSettings),
+                onPressed: () => Navigator.of(ctx)
+                    .pop(_PermanentlyDeniedAction.openSettings),
                 child: const Text(
                   'Open Settings',
                   style: TextStyle(color: Color(0xFF4FD0F8)),
@@ -99,10 +96,15 @@ class _MotionSensorOnboardingScreenState
               snackPosition: SnackPosition.BOTTOM,
             );
           }
+          return;
         }
       }
 
-      shouldContinue = true;
+      widget.onPermissionResult?.call(isGranted);
+
+      if (!mounted) return;
+      _hasContinued = true;
+      widget.onContinue?.call();
     } catch (error, stackTrace) {
       debugPrint('Permission request failed: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -122,6 +124,9 @@ class _MotionSensorOnboardingScreenState
 
   @override
   Widget build(BuildContext context) {
+    final int safeTotal = widget.totalSteps > 0 ? widget.totalSteps : 8;
+    final int safeStep = widget.currentStep.clamp(0, safeTotal - 1);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0A0D10),
       body: SafeArea(
@@ -129,17 +134,17 @@ class _MotionSensorOnboardingScreenState
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 18.0),
           child: Column(
             children: [
-              // 1. Top Segmented Onboarding Progress Bars
+              // 1. Top Segmented Onboarding Progress Bars (8 steps consistent)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28.0),
                 child: Row(
-                  children: List.generate(widget.totalSteps, (index) {
-                    final bool isActive = index == widget.currentStep;
+                  children: List.generate(safeTotal, (index) {
+                    final bool isActive = index <= safeStep;
                     return Expanded(
                       child: Container(
                         height: 4.5,
                         margin: EdgeInsets.only(
-                          right: index == widget.totalSteps - 1 ? 0 : 8,
+                          right: index == safeTotal - 1 ? 0 : 8,
                         ),
                         decoration: BoxDecoration(
                           color: isActive

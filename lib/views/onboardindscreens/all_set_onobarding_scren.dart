@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../services/auth_service.dart';
 import '../home/home_screen.dart';
 
@@ -9,7 +11,7 @@ class AllSetOnboardingScreen extends StatefulWidget {
 
   const AllSetOnboardingScreen({
     super.key,
-    this.totalSteps = 9,
+    this.totalSteps = 8,
     this.onLetsGo,
   });
 
@@ -21,6 +23,16 @@ class _AllSetOnboardingScreenState extends State<AllSetOnboardingScreen> {
   final AuthService _authService = AuthService();
   bool _isCompleting = false;
 
+  Future<void> _markPerUserOnboardingDone() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    const boxName = 'steptrack_auth_box';
+    final box =
+        Hive.isBoxOpen(boxName) ? Hive.box(boxName) : await Hive.openBox(boxName);
+    await box.put('onboarding_done_$uid', true);
+  }
+
   Future<void> _onLetsGoPressed() async {
     if (_isCompleting) return;
     setState(() => _isCompleting = true);
@@ -31,6 +43,7 @@ class _AllSetOnboardingScreenState extends State<AllSetOnboardingScreen> {
         subscribeNewsletter: cachedUser?.subscribeNewsletter ?? true,
         isOnboardingCompleted: true,
       );
+      await _markPerUserOnboardingDone();
 
       if (!mounted) return;
 
@@ -38,6 +51,17 @@ class _AllSetOnboardingScreenState extends State<AllSetOnboardingScreen> {
         widget.onLetsGo!();
       } else {
         Get.offAll(() => const HomeScreen());
+      }
+    } catch (e) {
+      debugPrint('Complete onboarding error: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Error',
+          'Onboarding complete karte waqt masla aaya. Dobara koshish karein.',
+          backgroundColor: const Color(0xFF28181D),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
       }
     } finally {
       if (mounted) {
@@ -48,6 +72,8 @@ class _AllSetOnboardingScreenState extends State<AllSetOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final int safeTotal = widget.totalSteps > 0 ? widget.totalSteps : 8;
+
     return Scaffold(
       backgroundColor: const Color(0xFF080A0C),
       body: SafeArea(
@@ -55,16 +81,16 @@ class _AllSetOnboardingScreenState extends State<AllSetOnboardingScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 18.0),
           child: Column(
             children: [
-              // 1. Top Segmented Onboarding Progress Bars (All active)
+              // 1. Top Segmented Onboarding Progress Bars (8 steps consistent)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28.0),
                 child: Row(
-                  children: List.generate(widget.totalSteps, (index) {
+                  children: List.generate(safeTotal, (index) {
                     return Expanded(
                       child: Container(
                         height: 4.5,
                         margin: EdgeInsets.only(
-                          right: index == widget.totalSteps - 1 ? 0 : 8,
+                          right: index == safeTotal - 1 ? 0 : 8,
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFF19A7E6),

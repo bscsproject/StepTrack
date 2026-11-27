@@ -6,12 +6,14 @@ class SetupOnboardingScreen extends StatefulWidget {
   final int totalSteps;
   final int currentStep;
   final VoidCallback? onNext;
+  final VoidCallback? onContinue;
 
   const SetupOnboardingScreen({
     super.key,
-    this.totalSteps = 9,
+    this.totalSteps = 8,
     this.currentStep = 1,
-    this.onNext, required void Function() onContinue,
+    this.onNext,
+    this.onContinue,
   });
 
   @override
@@ -361,13 +363,27 @@ class _SetupOnboardingScreenState extends State<SetupOnboardingScreen> {
         heightCm: _heightCm!,
       );
 
+      if (!mounted) return;
       if (widget.onNext != null) {
         widget.onNext!();
+      } else if (widget.onContinue != null) {
+        widget.onContinue!();
       } else {
         Get.snackbar(
           'Saved',
           'Aapki profile details save ho gayi hain.',
           backgroundColor: const Color(0xFF15222B),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } catch (e) {
+      debugPrint('Setup save error: $e');
+      if (mounted) {
+        Get.snackbar(
+          'Save Failed',
+          'Details save karte waqt masla aaya. Dobara koshish karein.',
+          backgroundColor: const Color(0xFF28181D),
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
         );
@@ -381,6 +397,9 @@ class _SetupOnboardingScreenState extends State<SetupOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final int safeTotal = widget.totalSteps > 0 ? widget.totalSteps : 8;
+    final int safeStep = widget.currentStep.clamp(0, safeTotal - 1);
+
     return Scaffold(
       backgroundColor: const Color(0xFF080A0C),
       body: SafeArea(
@@ -388,17 +407,17 @@ class _SetupOnboardingScreenState extends State<SetupOnboardingScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 18.0),
           child: Column(
             children: [
-              // 1. Top Segmented Onboarding Progress Bars
+              // 1. Top Segmented Onboarding Progress Bars (8 steps consistent)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28.0),
                 child: Row(
-                  children: List.generate(widget.totalSteps, (index) {
-                    final bool isActive = index == widget.currentStep;
+                  children: List.generate(safeTotal, (index) {
+                    final bool isActive = index <= safeStep;
                     return Expanded(
                       child: Container(
                         height: 4.5,
                         margin: EdgeInsets.only(
-                          right: index == widget.totalSteps - 1 ? 0 : 8,
+                          right: index == safeTotal - 1 ? 0 : 8,
                         ),
                         decoration: BoxDecoration(
                           color: isActive

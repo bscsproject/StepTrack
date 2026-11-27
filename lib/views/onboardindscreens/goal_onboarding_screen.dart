@@ -10,7 +10,7 @@ class GoalOnboardingScreen extends StatefulWidget {
 
   const GoalOnboardingScreen({
     super.key,
-    this.totalSteps = 9,
+    this.totalSteps = 8,
     this.currentStep = 2,
     this.onContinue,
     this.onGoalSelected,
@@ -82,10 +82,11 @@ class _GoalOnboardingScreenState extends State<GoalOnboardingScreen> {
       await _authService.saveUserMainGoal(_selectedGoal);
       savedSuccessfully = true;
     } catch (e) {
+      debugPrint('Goal save error: $e');
       if (mounted) {
         Get.snackbar(
           'Save Failed',
-          e.toString(),
+          'Goal save karte waqt masla aaya. Dobara koshish karein.',
           backgroundColor: Colors.redAccent,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
@@ -102,7 +103,6 @@ class _GoalOnboardingScreenState extends State<GoalOnboardingScreen> {
     widget.onGoalSelected?.call(_selectedGoal);
 
     if (widget.onContinue != null) {
-      // Permission screens ke baad is Continue button par next screen open hogi
       widget.onContinue!();
     } else {
       Get.snackbar(
@@ -117,6 +117,9 @@ class _GoalOnboardingScreenState extends State<GoalOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final int safeTotal = widget.totalSteps > 0 ? widget.totalSteps : 8;
+    final int safeStep = widget.currentStep.clamp(0, safeTotal - 1);
+
     return Scaffold(
       backgroundColor: const Color(0xFF080A0C),
       body: SafeArea(
@@ -124,17 +127,17 @@ class _GoalOnboardingScreenState extends State<GoalOnboardingScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 22.0, vertical: 18.0),
           child: Column(
             children: [
-              // 1. Top Segmented Onboarding Progress Bars (3rd bar active)
+              // 1. Top Segmented Onboarding Progress Bars (8 steps consistent)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28.0),
                 child: Row(
-                  children: List.generate(widget.totalSteps, (index) {
-                    final bool isActive = index == widget.currentStep;
+                  children: List.generate(safeTotal, (index) {
+                    final bool isActive = index <= safeStep;
                     return Expanded(
                       child: Container(
                         height: 4.5,
                         margin: EdgeInsets.only(
-                          right: index == widget.totalSteps - 1 ? 0 : 8,
+                          right: index == safeTotal - 1 ? 0 : 8,
                         ),
                         decoration: BoxDecoration(
                           color: isActive
