@@ -2,11 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:step_track/model/user_model.dart';
 import 'package:step_track/services/auth_service.dart';
 import 'package:step_track/views/auth/create_profile_screen.dart';
 import 'package:step_track/views/auth/welcome_user_screen.dart';
-import 'package:step_track/views/home/home_screen.dart';
 import 'package:step_track/views/onboardindscreens/all_set_onobarding_scren.dart';
 import 'package:step_track/views/onboardindscreens/autostart_onboarding_screen.dart';
 import 'package:step_track/views/onboardindscreens/battery_optimization.dart';
@@ -49,8 +49,14 @@ class AuthController extends GetxController {
     selectedColorIndex.value = next;
   }
 
+  Future<void> _setLocalOnboardingCompleted(bool value) async {
+    if (Hive.isBoxOpen('steptrack_auth_box')) {
+      await Hive.box('steptrack_auth_box').put('isOnboardingCompleted', value);
+    }
+  }
+
   // =========================================================================
-  // DIRECT STEP-BY-STEP ONBOARDING FLOW (Step 1 -> Step 8 -> HomeScreen)
+  // DIRECT STEP-BY-STEP ONBOARDING FLOW (Step 1 -> Step 8 -> /home)
   // =========================================================================
 
   /// Auth complete hone ke baad seedha Step 1 (Motion Sensor) se flow start karta hai
@@ -60,43 +66,43 @@ class AuthController extends GetxController {
 
   Widget _buildStep1MotionSensor() {
     return MotionSensorOnboardingScreen(
-      onContinue: () => Get.to(() => _buildStep2SetupMetrics()),
+      onContinue: () => Get.off(() => _buildStep2SetupMetrics()),
     );
   }
 
   Widget _buildStep2SetupMetrics() {
     return SetupOnboardingScreen(
-      onContinue: () => Get.to(() => _buildStep3MainGoal()),
+      onContinue: () => Get.off(() => _buildStep3MainGoal()),
     );
   }
 
   Widget _buildStep3MainGoal() {
     return GoalOnboardingScreen(
-      onContinue: () => Get.to(() => _buildStep4GoalReminder()),
+      onContinue: () => Get.off(() => _buildStep4GoalReminder()),
     );
   }
 
   Widget _buildStep4GoalReminder() {
     return GoalReminderOnboardingScreen(
-      onContinue: () => Get.to(() => _buildStep5DailyCircle()),
+      onContinue: () => Get.off(() => _buildStep5DailyCircle()),
     );
   }
 
   Widget _buildStep5DailyCircle() {
     return DailyCircleOnboardingScreen(
-      onGetStarted: () => Get.to(() => _buildStep6BatteryOptimisation()),
+      onGetStarted: () => Get.off(() => _buildStep6BatteryOptimisation()),
     );
   }
 
   Widget _buildStep6BatteryOptimisation() {
     return BatteryOptimisationOnboardingScreen(
-      onContinue: () => Get.to(() => _buildStep7EnableAutostart()),
+      onContinue: () => Get.off(() => _buildStep7EnableAutostart()),
     );
   }
 
   Widget _buildStep7EnableAutostart() {
     return EnableAutostartOnboardingScreen(
-      onContinue: () => Get.to(() => _buildStep8AllSetUp()),
+      onContinue: () => Get.off(() => _buildStep8AllSetUp()),
     );
   }
 
@@ -106,20 +112,21 @@ class AuthController extends GetxController {
     );
   }
 
-  /// Final step ("Go to HomeScreen" / "Let's Go") par completion save karke HomeScreen open karta hai
+  /// Final step ("Let's Go") par completion save karke HomeScreen open karta hai
   Future<void> finishOnboardingAndGoHome() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      try {
-        isLoading.value = true;
+    try {
+      isLoading.value = true;
+      await _setLocalOnboardingCompleted(true);
+      if (uid != null) {
         await _firestore.collection('users').doc(uid).set({
           'isOnboardingCompleted': true,
         }, SetOptions(merge: true));
-      } finally {
-        isLoading.value = false;
       }
+    } finally {
+      isLoading.value = false;
     }
-    Get.offAll(() => const HomeScreen());
+    Get.offAllNamed('/home');
   }
 
   // =========================================================================
@@ -147,6 +154,7 @@ class AuthController extends GetxController {
 
       if (user != null) {
         profileName.value = user.name;
+        await _setLocalOnboardingCompleted(false);
         Get.offAll(() => const CreateProfileScreen());
       }
     } catch (e) {
@@ -162,7 +170,7 @@ class AuthController extends GetxController {
     }
   }
 
-  // 2. Continue with Google -> Direct Home (agar onboarding completed hai) ya Create Profile
+  // 2. Continue with Google -> Direct /home (agar onboarding completed hai) ya Create Profile
   Future<void> continueWithGoogle() async {
     try {
       isGoogleLoading.value = true;
@@ -170,8 +178,9 @@ class AuthController extends GetxController {
 
       if (user != null) {
         profileName.value = user.name;
+        await _setLocalOnboardingCompleted(user.isOnboardingCompleted);
         if (user.isOnboardingCompleted) {
-          Get.offAll(() => const HomeScreen());
+          Get.offAllNamed('/home');
         } else {
           Get.offAll(() => const CreateProfileScreen());
         }
@@ -189,7 +198,7 @@ class AuthController extends GetxController {
     }
   }
 
-  // 3. Login with Email -> Agar onboarding complete hai to Home, warna Step 1 (Motion Sensor)
+  // 3. Login with Email -> Agar onboarding complete hai to /home, warna Step 1 (Motion Sensor)
   Future<void> signIn({
     required String email,
     required String password,
@@ -209,8 +218,9 @@ class AuthController extends GetxController {
         }
 
         final bool completed = data?['isOnboardingCompleted'] == true;
+        await _setLocalOnboardingCompleted(completed);
         if (completed) {
-          Get.offAll(() => const HomeScreen());
+          Get.offAllNamed('/home');
         } else {
           startOnboardingFlow();
         }
@@ -251,7 +261,7 @@ class AuthController extends GetxController {
       }
     }
 
-    Get.to(() => const WelcomeUserScreen());
+    Get.off(() => const WelcomeUserScreen());
   }
 
   // 5. Screen 2 ("Welcome!") Continue -> Save Newsletter & Direct Start Step 1 (Motion Sensor)

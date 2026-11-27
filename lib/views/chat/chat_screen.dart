@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import '../controllers/social_realtime_controller.dart';
-import '../models/social_models.dart';
-import '../widgets/social_nav_bar.dart';
-import 'discover_screen.dart';
-import 'social_hub_screen.dart';
+import 'package:step_track/controller/social_realtime_controller.dart';
+import 'package:step_track/model/social_models.dart';
+import 'package:step_track/views/discover/discover_screen.dart';
+import 'package:step_track/views/discover/social_hub_screen.dart';
+import 'package:step_track/views/discover/social_nav_bar.dart';
 
 class ChatScreen extends StatefulWidget {
   static const String routeName = '/chat';
@@ -241,7 +241,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _showNewThreadDialog(SocialRealtimeController controller) {
     final titleCtrl = TextEditingController();
     final msgCtrl = TextEditingController(
-      text: 'Hello everyone! Ready for today's steps.',
+      text: 'Hello everyone! Ready for today\'s steps.',
     );
 
     Get.dialog(
