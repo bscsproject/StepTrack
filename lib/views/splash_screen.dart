@@ -5,9 +5,6 @@ import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:step_track/controller/auth_controller.dart';
-import 'package:step_track/core/app_theme.dart';
-import 'package:step_track/views/auth/welcome_auth_screen.dart';
-import 'package:step_track/views/home/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -23,7 +20,6 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
     _timer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
       unawaited(_routeUser());
@@ -35,41 +31,40 @@ class _SplashScreenState extends State<SplashScreen> {
     _isRouting = true;
 
     try {
+      const boxName = 'steptrack_auth_box';
+      final box = Hive.isBoxOpen(boxName)
+          ? Hive.box(boxName)
+          : await Hive.openBox(boxName);
+
       final user = FirebaseAuth.instance.currentUser;
+
       if (user == null) {
+        final bool guestDone = box.get('guest_onboarding_done') == true;
         if (!mounted) return;
-        Get.offAll(() =>  WelcomeAuthScreen());
+        if (guestDone) {
+          Get.offAllNamed('/home');
+        } else {
+          Get.offAllNamed('/auth');
+        }
         return;
       }
 
-      bool isOnboardingDone = false;
-      const boxName = 'steptrack_auth_box';
-
-      if (Hive.isBoxOpen(boxName)) {
-        final box = Hive.box(boxName);
-        isOnboardingDone = box.get('onboarding_done_${user.uid}') == true;
-      } else {
-        try {
-          final box = await Hive.openBox(boxName);
-          isOnboardingDone = box.get('onboarding_done_${user.uid}') == true;
-        } catch (e) {
-          debugPrint('Splash Hive read error: $e');
-        }
-      }
+      final bool isOnboardingDone =
+          box.get('onboarding_done_${user.uid}') == true;
 
       if (!mounted) return;
 
       if (isOnboardingDone) {
-        Get.offAll(() => const HomeScreen());
+        Get.offAllNamed('/home');
       } else if (Get.isRegistered<AuthController>()) {
         Get.find<AuthController>().startOnboardingFlow();
       } else {
-        Get.offAll(() =>  WelcomeAuthScreen());
+        Get.offAllNamed('/auth');
       }
     } catch (e) {
       debugPrint('Splash routing error: $e');
       if (!mounted) return;
-      Get.offAll(() =>  WelcomeAuthScreen());
+      Get.offAllNamed('/auth');
     } finally {
       _isRouting = false;
     }
@@ -103,7 +98,6 @@ class _SplashScreenState extends State<SplashScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // App Logo
                 Container(
                   width: 160,
                   height: 160,
@@ -132,17 +126,11 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 28),
-
-                // App Name
                 ShaderMask(
                   shaderCallback: (bounds) {
                     return const LinearGradient(
-                      colors: [
-                        Color(0xFF8265FF),
-                        Color(0xFF35B9FF),
-                      ],
+                      colors: [Color(0xFF8265FF), Color(0xFF35B9FF)],
                     ).createShader(bounds);
                   },
                   child: const Text(
@@ -155,9 +143,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 const Text(
                   'Every step brings you closer.',
                   style: TextStyle(
@@ -166,9 +152,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     letterSpacing: 0.3,
                   ),
                 ),
-
                 const SizedBox(height: 55),
-
                 const SizedBox(
                   width: 28,
                   height: 28,

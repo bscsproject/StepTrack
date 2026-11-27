@@ -199,11 +199,13 @@ class AuthController extends GetxController {
   // STEP 5: DAILY CIRCLE
   // ============================================================
 
-  Widget _buildStep5DailyCircle() {
-    return DailyCircleOnboardingScreen(
-      onGetStarted: _navigateToStep6,
-    );
-  }
+  
+Widget _buildStep5DailyCircle() {
+  return DailyCircleOnboardingScreen(
+    onGetStarted: _navigateToStep6,
+    onSkip: _navigateToStep6,
+  );
+}
 
   void _navigateToStep6() {
     debugPrint('AUTH: Step 5 Get Started callback received');

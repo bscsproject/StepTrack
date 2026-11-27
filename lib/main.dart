@@ -1,14 +1,17 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:step_track/controller/auth_controller.dart';
 import 'package:step_track/controller/social_realtime_controller.dart';
+import 'package:step_track/controller/step_track_hub_controller.dart';
 import 'package:step_track/controller/suite_realtime_controller.dart';
 import 'package:step_track/core/app_theme.dart';
 import 'package:step_track/firebase_options.dart';
 import 'package:step_track/model/groups_modal_screen.dart';
+import 'package:step_track/routes/app_routes.dart';
+import 'package:step_track/views/account/profile_detail_screen.dart';
 import 'package:step_track/views/auth/create_profile_screen.dart';
 import 'package:step_track/views/auth/login_screen.dart';
 import 'package:step_track/views/auth/signup_screen.dart';
@@ -18,39 +21,46 @@ import 'package:step_track/views/chat/chat_screen.dart';
 import 'package:step_track/views/chat/chats_home_screen.dart';
 import 'package:step_track/views/chat/stepsapp_feed_screen.dart';
 import 'package:step_track/views/chat/thread_conversation_screen.dart';
+import 'package:step_track/views/discover/create_challenge_screen.dart'
+    as discover_challenge;
 import 'package:step_track/views/discover/discover_screen.dart';
 import 'package:step_track/views/discover/previous_challenges_screen.dart';
 import 'package:step_track/views/discover/social_hub_screen.dart';
+import 'package:step_track/views/discover/weight_loss_plan_screen.dart'
+    as discover_plan;
 import 'package:step_track/views/home/create_challenge_screen.dart';
 import 'package:step_track/views/home/home_screen.dart';
 import 'package:step_track/views/home/weight_loss_plan_screen.dart';
+import 'package:step_track/views/settings/body_measurements_screen.dart';
+import 'package:step_track/views/settings/full_settings_screen.dart';
+import 'package:step_track/views/settings/google_fit_sync_screen.dart';
+import 'package:step_track/views/settings/notifications_settings_screen.dart';
+import 'package:step_track/views/settings/privacy_settings_screen.dart';
+import 'package:step_track/views/settings/pro_upgrade_screen.dart';
+import 'package:step_track/views/settings/setup_step_counter_flow.dart';
 import 'package:step_track/views/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // 1. Initialize Firebase
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
 
-    // 2. Initialize Hive
     await Hive.initFlutter();
 
-    // 3. Open authentication & onboarding box
     if (!Hive.isBoxOpen('steptrack_auth_box')) {
       await Hive.openBox('steptrack_auth_box');
     }
 
-    // 4. Register GetX controllers
     if (!Get.isRegistered<AuthController>()) {
-      Get.put<AuthController>(
-        AuthController(),
-        permanent: true,
-      );
+      Get.put<AuthController>(AuthController(), permanent: true);
+    }
+    if (!Get.isRegistered<StepTrackHubController>()) {
+      Get.put<StepTrackHubController>(StepTrackHubController(), permanent: true);
     }
     if (!Get.isRegistered<SocialRealtimeController>()) {
       Get.put<SocialRealtimeController>(
@@ -65,15 +75,11 @@ Future<void> main() async {
       );
     }
 
-    // 5. Run application
     runApp(const StepTrackApp());
   } catch (error, stackTrace) {
     debugPrint('STEPTRACK STARTUP ERROR: $error');
     debugPrintStack(stackTrace: stackTrace);
-
-    runApp(
-      StartupErrorApp(error: error.toString()),
-    );
+    runApp(StartupErrorApp(error: error.toString()));
   }
 }
 
@@ -90,15 +96,15 @@ class StepTrackApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       initialRoute: '/splash',
       getPages: [
-        // Core App Flow: Splash -> Auth -> Onboarding (via AuthController) -> Home
+        // Core App Flow: Splash -> Auth -> 8 Onboarding Steps -> Home
         GetPage(
           name: '/splash',
-          page: () => SplashScreen(),
+          page: () => const SplashScreen(),
           transition: Transition.fadeIn,
         ),
         GetPage(
           name: '/auth',
-          page: () =>  WelcomeAuthScreen(),
+          page: () => WelcomeAuthScreen(),
           transition: Transition.fadeIn,
         ),
         GetPage(
@@ -126,16 +132,60 @@ class StepTrackApp extends StatelessWidget {
           page: () => const HomeScreen(),
           transition: Transition.fadeIn,
         ),
-
-        // Bottom Navigation & Sub-Screens (Home, Discover, Chat, Insight)
         GetPage(
-          name: '/social-hub',
+          name: AppRoutes.hub,
+          page: () => const HomeScreen(),
+          transition: Transition.fadeIn,
+        ),
+
+        // Settings & Account Routes (AppRoutes)
+        GetPage(
+          name: AppRoutes.profile,
+          page: () => const ProfileDetailScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.settings,
+          page: () => const FullSettingsScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.setupStepCounter,
+          page: () => const SetupStepCounterFlow(),
+        ),
+        GetPage(
+          name: AppRoutes.bodyMeasurements,
+          page: () => const BodyMeasurementsScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.notifications,
+          page: () => const NotificationsSettingsScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.googleFitSync,
+          page: () => const GoogleFitSyncScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.privacySettings,
+          page: () => const PrivacySettingsScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.proUpgrade,
+          page: () => const ProUpgradeScreen(),
+        ),
+
+        // Discover, Chat & Suite Sub-Screens (exact routeName matches)
+        GetPage(
+          name: SocialHubScreen.routeName,
           page: () => const SocialHubScreen(),
           transition: Transition.fadeIn,
         ),
         GetPage(
-          name: '/chat',
+          name: ChatScreen.routeName,
           page: () => const ChatScreen(),
+          transition: Transition.fadeIn,
+        ),
+        GetPage(
+          name: DiscoverScreen.routeName,
+          page: () => const DiscoverScreen(),
           transition: Transition.fadeIn,
         ),
         GetPage(
@@ -144,31 +194,39 @@ class StepTrackApp extends StatelessWidget {
           transition: Transition.fadeIn,
         ),
         GetPage(
+          name: discover_challenge.CreateChallengeScreen.routeName,
+          page: () => const discover_challenge.CreateChallengeScreen(),
+        ),
+        GetPage(
           name: '/create-challenge',
           page: () => const CreateChallengeScreen(),
         ),
         GetPage(
-          name: '/groups-modal',
+          name: GroupsModalScreen.routeName,
           page: () => const GroupsModalScreen(),
         ),
         GetPage(
-          name: '/previous-challenges',
+          name: PreviousChallengesScreen.routeName,
           page: () => const PreviousChallengesScreen(),
+        ),
+        GetPage(
+          name: discover_plan.WeightLossPlanScreen.routeName,
+          page: () => const discover_plan.WeightLossPlanScreen(),
         ),
         GetPage(
           name: '/weight-loss-plan',
           page: () => const WeightLossPlanScreen(),
         ),
         GetPage(
-          name: '/chats-home',
+          name: ChatsHomeScreen.routeName,
           page: () => const ChatsHomeScreen(),
         ),
         GetPage(
-          name: '/stepsapp-feed',
+          name: StepsAppFeedScreen.routeName,
           page: () => const StepsAppFeedScreen(),
         ),
         GetPage(
-          name: '/thread-conversation',
+          name: ThreadConversationScreen.routeName,
           page: () => const ThreadConversationScreen(),
         ),
       ],
@@ -179,10 +237,7 @@ class StepTrackApp extends StatelessWidget {
 class StartupErrorApp extends StatelessWidget {
   final String error;
 
-  const StartupErrorApp({
-    super.key,
-    required this.error,
-  });
+  const StartupErrorApp({super.key, required this.error});
 
   @override
   Widget build(BuildContext context) {
@@ -196,10 +251,7 @@ class StartupErrorApp extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             child: Text(
               'StepTrack could not start.\n\n$error',
-              style: const TextStyle(
-                color: Color(0xFFF7F7FF),
-                fontSize: 15,
-              ),
+              style: const TextStyle(color: Color(0xFFF7F7FF), fontSize: 15),
               textAlign: TextAlign.center,
             ),
           ),

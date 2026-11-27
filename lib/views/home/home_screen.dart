@@ -11,6 +11,7 @@ import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:step_track/controller/auth_controller.dart';
+import 'package:step_track/controller/step_track_hub_controller.dart';
 import 'package:step_track/services/auth_service.dart';
 import 'package:step_track/views/home/create_challenge_screen.dart';
 import 'package:step_track/views/home/create_group_screen.dart';
@@ -80,10 +81,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _stepTrackingNoticeShown = false;
   bool _isStartingStepTracking = false;
   bool _stepsNeedSync = false;
+  Worker? _navIndexWorker;
 
   @override
   void initState() {
     super.initState();
+
+    if (Get.isRegistered<StepTrackHubController>()) {
+      final hubCtrl = Get.find<StepTrackHubController>();
+      _navIndexWorker = ever<int>(hubCtrl.navIndex, (idx) {
+        if (mounted && _navIndex != idx) {
+          setState(() {
+            _navIndex = idx.clamp(0, 3).toInt();
+            _isQuickMenuOpen = false;
+          });
+        }
+      });
+    }
     WidgetsBinding.instance.addObserver(this);
     _restoreLocalStepState();
     _syncFromSavedUserData();
@@ -96,6 +110,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _navIndexWorker?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _stepSubscription?.cancel();
     _userDocumentSubscription?.cancel();
@@ -2138,10 +2153,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       child: BottomNavigationBar(
         currentIndex: _navIndex,
-        onTap: (index) => setState(() {
-          _navIndex = index;
-          _isQuickMenuOpen = false;
-        }),
+        onTap: (index) {
+          setState(() {
+            _navIndex = index;
+            _isQuickMenuOpen = false;
+          });
+          if (Get.isRegistered<StepTrackHubController>()) {
+            Get.find<StepTrackHubController>().changeBottomTab(index);
+          }
+        },
         type: BottomNavigationBarType.fixed,
         backgroundColor: const Color(0xFF0A0E13),
         selectedItemColor: const Color(0xFF4FD0F8),
