@@ -155,7 +155,7 @@ class _DailyCircleOnboardingScreenState
       await _authService.saveWelcomePreferences(
         subscribeNewsletter:
             _authService.getCachedUser()?.subscribeNewsletter ?? true,
-        isOnboardingCompleted: true,
+        isOnboardingCompleted: false,
       );
 
       if (!mounted) return;

@@ -65,12 +65,22 @@ class AuthController extends GetxController {
   // ============================================================
 
   Future<void> _setLocalOnboardingCompleted(bool value) async {
-    if (Hive.isBoxOpen('steptrack_auth_box')) {
-      await Hive.box('steptrack_auth_box')
-          .put('isOnboardingCompleted', value);
-    } else {
-      debugPrint('AUTH: Hive auth box is not open.');
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    if (uid == null) {
+      debugPrint('AUTH: Cannot save onboarding status; UID is missing.');
+      return;
     }
+
+    const boxName = 'steptrack_auth_box';
+    final box = Hive.isBoxOpen(boxName)
+        ? Hive.box(boxName)
+        : await Hive.openBox(boxName);
+
+    await box.put('onboarding_done_$uid', value);
+    // Once a real account is active, discard any previous guest completion.
+    await box.delete('guest_onboarding_done');
+    debugPrint('AUTH: Local onboarding status saved: $value');
   }
 
   // ============================================================
@@ -257,46 +267,64 @@ class AuthController extends GetxController {
   // ============================================================
 
   Future<void> finishOnboardingAndGoHome() async {
-    debugPrint('AUTH: Onboarding completed. Opening Home.');
+    // Prevent rapid repeated taps / duplicate route pushes.
+    if (isLoading.value) return;
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     try {
       isLoading.value = true;
 
-      await _setLocalOnboardingCompleted(true);
+      if (uid == null) {
+        // Welcome Auth has a Skip option, so support guest onboarding too.
+        const boxName = 'steptrack_auth_box';
+        final box = Hive.isBoxOpen(boxName)
+            ? Hive.box(boxName)
+            : await Hive.openBox(boxName);
+        await box.put('guest_onboarding_done', true);
 
-      if (uid != null) {
-        await _firestore.collection('users').doc(uid).set(
-          {
-            'isOnboardingCompleted': true,
-          },
-          SetOptions(merge: true),
-        );
+        debugPrint('AUTH: Guest onboarding completion saved locally.');
+        Get.offAllNamed('/home');
+        return;
       }
 
-      debugPrint('AUTH: Onboarding completion saved.');
-    } catch (e) {
-      debugPrint('AUTH: Onboarding save error: $e');
+      // Save remotely first. Do not mark local completion if this fails.
+      await _firestore.collection('users').doc(uid).set(
+        {'isOnboardingCompleted': true},
+        SetOptions(merge: true),
+      );
+
+      // Keep SplashScreen and AuthController on the same per-user key.
+      await _setLocalOnboardingCompleted(true);
+
+      debugPrint('AUTH: Onboarding completion saved successfully.');
+
+      // Navigate only after both persistence operations succeed.
+      Get.offAllNamed('/home');
+    } catch (e, stackTrace) {
+      debugPrint('AUTH: Final onboarding save failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
 
       Get.snackbar(
-        'Saving Error',
-        'Unable to save onboarding status. Please try again.',
+        'Could Not Finish Setup',
+        'Your progress was not confirmed as saved. Please try again.',
         backgroundColor: Colors.redAccent,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
+
+      // AllSetOnboardingScreen catches this and keeps its retry button usable.
+      rethrow;
     } finally {
       isLoading.value = false;
     }
-
-    Get.offAllNamed('/home');
   }
 
   // ============================================================
   // AUTH ACTIONS
   // ============================================================
 
+  // Skip / Start onboarding
   void skipToOnboarding() {
     startOnboardingFlow();
   }
@@ -342,7 +370,7 @@ class AuthController extends GetxController {
   }
 
   // ------------------------------------------------------------
-  // 2. GOOGLE SIGN-IN -> DIRECT HOME (TESTING)
+  // 2. GOOGLE SIGN-IN
   // ------------------------------------------------------------
 
   Future<void> continueWithGoogle() async {
@@ -354,8 +382,17 @@ class AuthController extends GetxController {
       if (user != null) {
         profileName.value = user.name;
 
-        // TESTING: Directly open Home after Google login.
-        Get.offAllNamed('/home');
+        await _setLocalOnboardingCompleted(
+          user.isOnboardingCompleted,
+        );
+
+        if (user.isOnboardingCompleted) {
+          debugPrint('AUTH: Google user already completed onboarding.');
+
+          Get.offAllNamed('/home');
+        } else {
+          startOnboardingFlow();
+        }
       }
     } catch (e) {
       debugPrint('AUTH: Google sign-in error: $e');
@@ -373,7 +410,7 @@ class AuthController extends GetxController {
   }
 
   // ------------------------------------------------------------
-  // 3. EMAIL LOGIN -> DIRECT HOME (TESTING)
+  // 3. EMAIL LOGIN
   // ------------------------------------------------------------
 
   Future<void> signIn({
@@ -389,8 +426,29 @@ class AuthController extends GetxController {
       );
 
       if (user != null) {
-        // TESTING: Directly open Home after Email login.
-        Get.offAllNamed('/home');
+        final doc = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        final data = doc.data();
+
+        if (data != null && data['name'] != null) {
+          profileName.value = data['name'];
+        }
+
+        final bool completed =
+            data?['isOnboardingCompleted'] == true;
+
+        await _setLocalOnboardingCompleted(completed);
+
+        if (completed) {
+          debugPrint('AUTH: User onboarding already completed.');
+
+          Get.offAllNamed('/home');
+        } else {
+          startOnboardingFlow();
+        }
       }
     } catch (e) {
       debugPrint('AUTH: Login error: $e');

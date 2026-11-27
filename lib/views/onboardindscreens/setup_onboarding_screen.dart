@@ -432,25 +432,47 @@ class _SetupOnboardingScreenState extends State<SetupOnboardingScreen> {
   }
 
   Future<void> _onNextPressed() async {
-    if (!mounted || _hasNavigated) return;
+    if (!mounted || _hasNavigated || _isSaving) return;
 
-    debugPrint('SETUP: Next button tapped');
+    if (!_isFormComplete) {
+      Get.snackbar(
+        'Complete Your Details',
+        'Please select gender, year of birth, weight and height before continuing.',
+        backgroundColor: const Color(0xFF28181D),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
 
-    // Navigate immediately, saving should not block navigation.
-    _forceNavigateNext();
+    setState(() => _isSaving = true);
+    debugPrint('SETUP: Next pressed; saving metrics before navigation.');
 
-    // Save setup metrics separately.
     try {
       await _authService.saveUserSetupMetrics(
-        gender: _gender ?? 'Not specified',
-        yearOfBirth: _yearOfBirth ?? 2000,
-        weightKg: _weightKg ?? 65.0,
-        heightCm: _heightCm ?? 170.0,
+        gender: _gender!,
+        yearOfBirth: _yearOfBirth!,
+        weightKg: _weightKg!,
+        heightCm: _heightCm!,
       );
 
-      debugPrint('SETUP: Metrics saved successfully');
-    } catch (e) {
+      if (!mounted) return;
+      debugPrint('SETUP: Metrics saved successfully.');
+      _forceNavigateNext();
+    } catch (e, stackTrace) {
       debugPrint('SETUP: Metrics save error: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        Get.snackbar(
+          'Save Failed',
+          'Your setup details could not be saved. Please try again.',
+          backgroundColor: const Color(0xFF28181D),
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -598,7 +620,7 @@ class _SetupOnboardingScreenState extends State<SetupOnboardingScreen> {
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: ElevatedButton(
-                    onPressed: _onNextPressed,
+                    onPressed: _isSaving || _hasNavigated ? null : _onNextPressed,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       disabledBackgroundColor: Colors.transparent,
