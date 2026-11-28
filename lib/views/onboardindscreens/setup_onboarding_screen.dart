@@ -132,7 +132,9 @@ class _SetupOnboardingScreenState extends State<SetupOnboardingScreen> {
                   child: ListWheelScrollView.useDelegate(
                     itemExtent: 42,
                     controller: FixedExtentScrollController(
-                      initialItem: years.indexOf(tempYear).clamp(0, years.length - 1),
+                      initialItem: years
+                          .indexOf(tempYear)
+                          .clamp(0, years.length - 1),
                     ),
                     physics: const FixedExtentScrollPhysics(),
                     onSelectedItemChanged: (idx) {
@@ -147,10 +149,13 @@ class _SetupOnboardingScreenState extends State<SetupOnboardingScreen> {
                           child: Text(
                             '$y',
                             style: TextStyle(
-                              color: active ? const Color(0xFF4FD0F8) : Colors.white70,
+                              color: active
+                                  ? const Color(0xFF4FD0F8)
+                                  : Colors.white70,
                               fontSize: active ? 22 : 17,
-                              fontWeight:
-                                  active ? FontWeight.w700 : FontWeight.w400,
+                              fontWeight: active
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
                             ),
                           ),
                         );
@@ -361,6 +366,7 @@ class _SetupOnboardingScreenState extends State<SetupOnboardingScreen> {
         yearOfBirth: _yearOfBirth!,
         weightKg: _weightKg!,
         heightCm: _heightCm!,
+        awaitCloudSync: false,
       );
 
       if (!mounted) return;
@@ -483,8 +489,9 @@ class _SetupOnboardingScreenState extends State<SetupOnboardingScreen> {
                         size: 21,
                       ),
                       title: 'Year of birth',
-                      valueText:
-                          _yearOfBirth != null ? '$_yearOfBirth' : 'Choose',
+                      valueText: _yearOfBirth != null
+                          ? '$_yearOfBirth'
+                          : 'Choose',
                       hasValue: _yearOfBirth != null,
                       onTap: _pickYearOfBirth,
                     ),
@@ -621,11 +628,7 @@ class _SetupOptionTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(
-              Icons.chevron_right,
-              color: Color(0xFF7D858E),
-              size: 20,
-            ),
+            const Icon(Icons.chevron_right, color: Color(0xFF7D858E), size: 20),
           ],
         ),
       ),

@@ -9,11 +9,7 @@ class AllSetOnboardingScreen extends StatefulWidget {
   final int totalSteps;
   final VoidCallback? onLetsGo;
 
-  const AllSetOnboardingScreen({
-    super.key,
-    this.totalSteps = 8,
-    this.onLetsGo,
-  });
+  const AllSetOnboardingScreen({super.key, this.totalSteps = 8, this.onLetsGo});
 
   @override
   State<AllSetOnboardingScreen> createState() => _AllSetOnboardingScreenState();
@@ -28,8 +24,9 @@ class _AllSetOnboardingScreenState extends State<AllSetOnboardingScreen> {
     if (uid == null) return;
 
     const boxName = 'steptrack_auth_box';
-    final box =
-        Hive.isBoxOpen(boxName) ? Hive.box(boxName) : await Hive.openBox(boxName);
+    final box = Hive.isBoxOpen(boxName)
+        ? Hive.box(boxName)
+        : await Hive.openBox(boxName);
     await box.put('onboarding_done_$uid', true);
   }
 
@@ -42,6 +39,7 @@ class _AllSetOnboardingScreenState extends State<AllSetOnboardingScreen> {
       await _authService.saveWelcomePreferences(
         subscribeNewsletter: cachedUser?.subscribeNewsletter ?? true,
         isOnboardingCompleted: true,
+        awaitCloudSync: false,
       );
       await _markPerUserOnboardingDone();
 

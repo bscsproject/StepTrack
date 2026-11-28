@@ -42,6 +42,7 @@ class _BatteryOptimisationOnboardingScreenState
       await _authService.saveBatteryOptimisationStatus(
         isIgnoringBatteryOptimisations: isGranted,
         permissionStatus: status.name,
+        awaitCloudSync: false,
       );
 
       if (!mounted) return;
@@ -118,9 +119,7 @@ class _BatteryOptimisationOnboardingScreenState
               SizedBox(
                 width: 120,
                 height: 150,
-                child: CustomPaint(
-                  painter: _BatteryOptimisationPainter(),
-                ),
+                child: CustomPaint(painter: _BatteryOptimisationPainter()),
               ),
 
               const SizedBox(height: 28),

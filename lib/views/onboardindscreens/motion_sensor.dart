@@ -9,7 +9,7 @@ enum _PermanentlyDeniedAction { continueAnyway, openSettings }
 class MotionSensorOnboardingScreen extends StatefulWidget {
   final int totalSteps;
   final int currentStep;
-  final VoidCallback? onContinue;
+  final VoidCallback onContinue;
   final ValueChanged<bool>? onPermissionResult;
 
   const MotionSensorOnboardingScreen({

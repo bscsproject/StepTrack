@@ -32,6 +32,7 @@ class _EnableAutostartOnboardingScreenState
       await _authService.saveAutostartStatus(
         autostartSettingsOpened: true,
         actionSource: 'open_settings',
+        awaitCloudSync: false,
       );
       final opened = await openAppSettings();
       if (!opened && mounted) {
@@ -65,6 +66,7 @@ class _EnableAutostartOnboardingScreenState
       await _authService.saveAutostartStatus(
         autostartSettingsOpened: _settingsOpened,
         actionSource: 'continue',
+        awaitCloudSync: false,
       );
 
       if (!mounted) return;

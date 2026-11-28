@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
+import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:step_track/model/user_model.dart';
@@ -26,6 +28,41 @@ class AuthService {
     throw StateError(
       'Hive box "$_boxName" open nahi hai. main.dart mein await Hive.openBox("$_boxName") call karein.',
     );
+  }
+
+  Future<void> _saveUserFieldsToCloud(
+    String uid,
+    Map<String, dynamic> fields, {
+    required bool awaitCloudSync,
+    required String operation,
+  }) async {
+    final write = _firestore
+        .collection('users')
+        .doc(uid)
+        .set(fields, SetOptions(merge: true));
+
+    if (awaitCloudSync) {
+      await write;
+    } else {
+      unawaited(_reportCloudSyncFailure(write, operation));
+    }
+  }
+
+  Future<void> _reportCloudSyncFailure(
+    Future<void> write,
+    String operation,
+  ) async {
+    try {
+      await write;
+    } catch (error, stackTrace) {
+      debugPrint('$operation cloud sync failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      Get.snackbar(
+        'Cloud Sync Failed',
+        '$operation was saved on this device, but could not be synced to your account.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
   Future<void> _ensureGoogleInitialized() async {
@@ -120,6 +157,7 @@ class AuthService {
     required int yearOfBirth,
     required double weightKg,
     required double heightCm,
+    bool awaitCloudSync = true,
   }) async {
     final currentAuthUser = _auth.currentUser;
     final existing = _getExistingUser(currentAuthUser);
@@ -146,12 +184,17 @@ class AuthService {
     await _box.put('user_$uid', jsonEncode(updatedMap));
 
     if (currentAuthUser != null) {
-      await _firestore.collection('users').doc(currentAuthUser.uid).set({
-        'gender': gender,
-        'yearOfBirth': yearOfBirth,
-        'weightKg': weightKg,
-        'heightCm': heightCm,
-      }, SetOptions(merge: true));
+      await _saveUserFieldsToCloud(
+        currentAuthUser.uid,
+        {
+          'gender': gender,
+          'yearOfBirth': yearOfBirth,
+          'weightKg': weightKg,
+          'heightCm': heightCm,
+        },
+        awaitCloudSync: awaitCloudSync,
+        operation: 'Profile setup',
+      );
     }
   }
 
@@ -213,7 +256,10 @@ class AuthService {
 
   // -------------------- Main Goal Helpers --------------------
 
-  Future<void> saveUserMainGoal(String mainGoal) async {
+  Future<void> saveUserMainGoal(
+    String mainGoal, {
+    bool awaitCloudSync = true,
+  }) async {
     final currentAuthUser = _auth.currentUser;
     final existing = _getExistingUser(currentAuthUser);
 
@@ -236,9 +282,12 @@ class AuthService {
     await _box.put('user_$uid', jsonEncode(updatedMap));
 
     if (currentAuthUser != null) {
-      await _firestore.collection('users').doc(currentAuthUser.uid).set({
-        'mainGoal': mainGoal,
-      }, SetOptions(merge: true));
+      await _saveUserFieldsToCloud(
+        currentAuthUser.uid,
+        {'mainGoal': mainGoal},
+        awaitCloudSync: awaitCloudSync,
+        operation: 'Goal',
+      );
     }
   }
 
@@ -305,7 +354,10 @@ class AuthService {
 
   // -------------------- Invited Friends Helpers --------------------
 
-  Future<void> saveInvitedFriends(List<String> invitedFriends) async {
+  Future<void> saveInvitedFriends(
+    List<String> invitedFriends, {
+    bool awaitCloudSync = true,
+  }) async {
     final currentAuthUser = _auth.currentUser;
     final existing = _getExistingUser(currentAuthUser);
 
@@ -328,9 +380,12 @@ class AuthService {
     await _box.put('user_$uid', jsonEncode(updatedMap));
 
     if (currentAuthUser != null) {
-      await _firestore.collection('users').doc(currentAuthUser.uid).set({
-        'invitedFriends': invitedFriends,
-      }, SetOptions(merge: true));
+      await _saveUserFieldsToCloud(
+        currentAuthUser.uid,
+        {'invitedFriends': invitedFriends},
+        awaitCloudSync: awaitCloudSync,
+        operation: 'Daily Circle',
+      );
     }
   }
 
@@ -346,6 +401,7 @@ class AuthService {
   Future<void> saveBatteryOptimisationStatus({
     required bool isIgnoringBatteryOptimisations,
     required String permissionStatus,
+    bool awaitCloudSync = true,
   }) async {
     final currentAuthUser = _auth.currentUser;
     final existing = _getExistingUser(currentAuthUser);
@@ -370,10 +426,15 @@ class AuthService {
     await _box.put('user_$uid', jsonEncode(updatedMap));
 
     if (currentAuthUser != null) {
-      await _firestore.collection('users').doc(currentAuthUser.uid).set({
-        'batteryOptimisationDisabled': isIgnoringBatteryOptimisations,
-        'batteryPermissionStatus': permissionStatus,
-      }, SetOptions(merge: true));
+      await _saveUserFieldsToCloud(
+        currentAuthUser.uid,
+        {
+          'batteryOptimisationDisabled': isIgnoringBatteryOptimisations,
+          'batteryPermissionStatus': permissionStatus,
+        },
+        awaitCloudSync: awaitCloudSync,
+        operation: 'Battery settings',
+      );
     }
   }
 
@@ -382,6 +443,7 @@ class AuthService {
   Future<void> saveAutostartStatus({
     required bool autostartSettingsOpened,
     required String actionSource,
+    bool awaitCloudSync = true,
   }) async {
     final currentAuthUser = _auth.currentUser;
     final existing = _getExistingUser(currentAuthUser);
@@ -406,10 +468,15 @@ class AuthService {
     await _box.put('user_$uid', jsonEncode(updatedMap));
 
     if (currentAuthUser != null) {
-      await _firestore.collection('users').doc(currentAuthUser.uid).set({
-        'autostartSettingsOpened': autostartSettingsOpened,
-        'autostartActionSource': actionSource,
-      }, SetOptions(merge: true));
+      await _saveUserFieldsToCloud(
+        currentAuthUser.uid,
+        {
+          'autostartSettingsOpened': autostartSettingsOpened,
+          'autostartActionSource': actionSource,
+        },
+        awaitCloudSync: awaitCloudSync,
+        operation: 'Autostart settings',
+      );
     }
   }
 
@@ -582,6 +649,7 @@ class AuthService {
   Future<UserModel> saveWelcomePreferences({
     required bool subscribeNewsletter,
     required bool isOnboardingCompleted,
+    bool awaitCloudSync = true,
   }) async {
     final currentAuthUser = _auth.currentUser;
     final existing =
@@ -601,10 +669,15 @@ class AuthService {
     await saveUserToLocalStorage(updatedUser);
 
     if (currentAuthUser != null) {
-      await _firestore.collection('users').doc(currentAuthUser.uid).set({
-        'subscribeNewsletter': subscribeNewsletter,
-        'isOnboardingCompleted': isOnboardingCompleted,
-      }, SetOptions(merge: true));
+      await _saveUserFieldsToCloud(
+        currentAuthUser.uid,
+        {
+          'subscribeNewsletter': subscribeNewsletter,
+          'isOnboardingCompleted': isOnboardingCompleted,
+        },
+        awaitCloudSync: awaitCloudSync,
+        operation: 'Onboarding preferences',
+      );
     }
 
     return updatedUser;

@@ -92,7 +92,10 @@ class _DailyCircleOnboardingScreenState
     });
 
     try {
-      await _authService.saveInvitedFriends(_invitedIds.toList());
+      await _authService.saveInvitedFriends(
+        _invitedIds.toList(),
+        awaitCloudSync: false,
+      );
 
       if (!alreadyInvited) {
         const inviteCode = 'STEPTRACK-CIRCLE';
@@ -151,11 +154,15 @@ class _DailyCircleOnboardingScreenState
     setState(() => _isSaving = true);
 
     try {
-      await _authService.saveInvitedFriends(_invitedIds.toList());
+      await _authService.saveInvitedFriends(
+        _invitedIds.toList(),
+        awaitCloudSync: false,
+      );
       await _authService.saveWelcomePreferences(
         subscribeNewsletter:
             _authService.getCachedUser()?.subscribeNewsletter ?? true,
-        isOnboardingCompleted: true,
+        isOnboardingCompleted: false,
+        awaitCloudSync: false,
       );
 
       if (!mounted) return;
@@ -546,10 +553,7 @@ class _MiniAvatarCircle extends StatelessWidget {
   final Color bg;
   final String emoji;
 
-  const _MiniAvatarCircle({
-    required this.bg,
-    required this.emoji,
-  });
+  const _MiniAvatarCircle({required this.bg, required this.emoji});
 
   @override
   Widget build(BuildContext context) {
@@ -562,10 +566,7 @@ class _MiniAvatarCircle extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: const Color(0xFF12161B), width: 2),
       ),
-      child: Text(
-        emoji,
-        style: const TextStyle(fontSize: 18),
-      ),
+      child: Text(emoji, style: const TextStyle(fontSize: 18)),
     );
   }
 }

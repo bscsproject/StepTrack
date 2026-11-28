@@ -79,7 +79,7 @@ class _GoalOnboardingScreenState extends State<GoalOnboardingScreen> {
 
     bool savedSuccessfully = false;
     try {
-      await _authService.saveUserMainGoal(_selectedGoal);
+      await _authService.saveUserMainGoal(_selectedGoal, awaitCloudSync: false);
       savedSuccessfully = true;
     } catch (e) {
       debugPrint('Goal save error: $e');

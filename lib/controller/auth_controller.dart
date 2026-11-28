@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -55,6 +57,27 @@ class AuthController extends GetxController {
     }
   }
 
+  Future<void> _syncUserFieldsInBackground(
+    String uid,
+    Map<String, dynamic> fields,
+    String operation,
+  ) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(uid)
+          .set(fields, SetOptions(merge: true));
+    } catch (error, stackTrace) {
+      debugPrint('$operation cloud sync failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      Get.snackbar(
+        'Cloud Sync Failed',
+        '$operation was saved on this device, but could not be synced to your account.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
   // =========================================================================
   // DIRECT STEP-BY-STEP ONBOARDING FLOW (Step 1 -> Step 8 -> /home)
   // =========================================================================
@@ -107,9 +130,7 @@ class AuthController extends GetxController {
   }
 
   Widget _buildStep8AllSetUp() {
-    return AllSetOnboardingScreen(
-      onLetsGo: finishOnboardingAndGoHome,
-    );
+    return AllSetOnboardingScreen(onLetsGo: finishOnboardingAndGoHome);
   }
 
   /// Final step ("Let's Go") par completion save karke HomeScreen open karta hai
@@ -118,13 +139,24 @@ class AuthController extends GetxController {
     try {
       isLoading.value = true;
       await _setLocalOnboardingCompleted(true);
-      if (uid != null) {
-        await _firestore.collection('users').doc(uid).set({
-          'isOnboardingCompleted': true,
-        }, SetOptions(merge: true));
-      }
+    } catch (error, stackTrace) {
+      debugPrint('Could not save onboarding completion locally: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      Get.snackbar(
+        'Local Save Failed',
+        'Onboarding is complete, but this device could not save its status.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       isLoading.value = false;
+    }
+
+    if (uid != null) {
+      unawaited(
+        _syncUserFieldsInBackground(uid, {
+          'isOnboardingCompleted': true,
+        }, 'Onboarding completion'),
+      );
     }
     Get.offAllNamed('/home');
   }
@@ -199,10 +231,7 @@ class AuthController extends GetxController {
   }
 
   // 3. Login with Email -> Agar onboarding complete hai to /home, warna Step 1 (Motion Sensor)
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     try {
       isLoading.value = true;
       final user = await _authService.loginWithEmail(
@@ -249,16 +278,13 @@ class AuthController extends GetxController {
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      try {
-        isLoading.value = true;
-        await _firestore.collection('users').doc(uid).set({
+      unawaited(
+        _syncUserFieldsInBackground(uid, {
           'name': cleanName,
           'description': profileDescription.value,
           'avatarColorValue': avatarColors[selectedColorIndex.value].value,
-        }, SetOptions(merge: true));
-      } finally {
-        isLoading.value = false;
-      }
+        }, 'Profile details'),
+      );
     }
 
     Get.off(() => const WelcomeUserScreen());
@@ -266,16 +292,23 @@ class AuthController extends GetxController {
 
   // 5. Screen 2 ("Welcome!") Continue -> Save Newsletter & Direct Start Step 1 (Motion Sensor)
   Future<void> completeWelcomeToOnboarding() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      try {
-        isLoading.value = true;
-        await _firestore.collection('users').doc(uid).set({
-          'subscribeNewsletter': subscribeNewsletter.value,
-        }, SetOptions(merge: true));
-      } finally {
-        isLoading.value = false;
-      }
+    try {
+      isLoading.value = true;
+      await _authService.saveWelcomePreferences(
+        subscribeNewsletter: subscribeNewsletter.value,
+        isOnboardingCompleted: false,
+        awaitCloudSync: false,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Could not save welcome preferences locally: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      Get.snackbar(
+        'Local Save Failed',
+        'Your preferences could not be saved on this device.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
     }
 
     startOnboardingFlow();
