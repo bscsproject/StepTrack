@@ -15,6 +15,7 @@ import 'package:step_track/views/onboardindscreens/goal_onboarding_remainder.dar
 import 'package:step_track/views/onboardindscreens/goal_onboarding_screen.dart';
 import 'package:step_track/views/onboardindscreens/motion_sensor.dart';
 import 'package:step_track/views/onboardindscreens/setup_onboarding_screen.dart';
+import 'package:step_track/views/settings/pro_upgrade_screen.dart';
 
 class AuthController extends GetxController {
   final AuthService _authService = AuthService();
@@ -83,19 +84,19 @@ class AuthController extends GetxController {
 
   Widget _buildStep3MainGoal() {
     return GoalOnboardingScreen(
-      onContinue: () => Get.off(() => _buildStep4GoalReminder()),
+      onContinue: () => Get.off(() => _buildStep4DailyCircle()),
     );
   }
 
-  Widget _buildStep4GoalReminder() {
-    return GoalReminderOnboardingScreen(
-      onContinue: () => Get.off(() => _buildStep5DailyCircle()),
-    );
-  }
-
-  Widget _buildStep5DailyCircle() {
+  Widget _buildStep4DailyCircle() {
     return DailyCircleOnboardingScreen(
-      onGetStarted: () => Get.off(() => _buildStep6BatteryOptimisation()),
+      onGetStarted: () => Get.off(() => _buildStep5GoalReminder()),
+    );
+  }
+
+  Widget _buildStep5GoalReminder() {
+    return GoalReminderOnboardingScreen(
+      onContinue: () => Get.off(() => _buildStep6BatteryOptimisation()),
     );
   }
 
@@ -131,7 +132,11 @@ class AuthController extends GetxController {
     } finally {
       isLoading.value = false;
     }
-    Get.offAllNamed('/home');
+    Get.offAll(
+      () => ProUpgradeScreen(
+        onClose: () => Get.offAllNamed('/home'),
+      ),
+    );
   }
 
   // =========================================================================

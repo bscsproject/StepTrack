@@ -4,7 +4,9 @@ import 'package:step_track/controller/step_track_hub_controller.dart';
 import 'package:step_track/themes/step_track_theme.dart';
 
 class ProUpgradeScreen extends StatelessWidget {
-  const ProUpgradeScreen({super.key});
+  final VoidCallback? onClose;
+
+  const ProUpgradeScreen({super.key, this.onClose});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +27,7 @@ class ProUpgradeScreen extends StatelessWidget {
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.close, color: pal.textPrimary),
-            onPressed: () => Get.back(),
+            onPressed: onClose ?? () => Get.back(),
           ),
           title: Text(
             'StepTrack Pro',

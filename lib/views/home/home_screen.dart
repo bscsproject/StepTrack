@@ -12,12 +12,15 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:step_track/controller/auth_controller.dart';
 import 'package:step_track/services/auth_service.dart';
+import 'package:step_track/views/chat/chats_home_screen.dart';
+import 'package:step_track/views/discover/discover_screen.dart';
 import 'package:step_track/views/home/create_challenge_screen.dart';
 import 'package:step_track/views/home/create_group_screen.dart';
 import 'package:step_track/views/home/invite_friend_helper.dart';
 import 'package:step_track/views/home/track_calories_screen.dart';
 import 'package:step_track/views/home/weight_loss_plan_screen.dart';
 import 'package:step_track/views/home/weight_screen.dart';
+import 'package:step_track/views/insights/insights_tab_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -839,15 +842,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     Widget currentBody;
     switch (_navIndex) {
       case 1:
-        currentBody =
-            widget.discoverScreen ?? _buildUnavailableTab('Discover');
+        currentBody = widget.discoverScreen ?? const DiscoverScreen();
         break;
       case 2:
-        currentBody = widget.chatsScreen ?? _buildUnavailableTab('Chats');
+        currentBody = widget.chatsScreen ?? const ChatsHomeScreen();
         break;
       case 3:
-        currentBody =
-            widget.insightsScreen ?? _buildUnavailableTab('Insights');
+        currentBody = widget.insightsScreen ?? const InsightsTabView();
         break;
       default:
         currentBody = _buildDashboardBody();
