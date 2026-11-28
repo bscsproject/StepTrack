@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../controllers/suite_realtime_controller.dart';
+import '../../controller/suite_realtime_controller.dart';
 
 class CreateChallengeScreen extends StatefulWidget {
   static const String routeName = '/discover/create-challenge';

@@ -1,9 +1,11 @@
 import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../models/social_models.dart';
+
+import '../model/social_models.dart';
 
 class SocialRealtimeController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -34,14 +36,12 @@ class SocialRealtimeController extends GetxController {
   String get currentUserId =>
       _auth.currentUser?.uid ?? '50g9eQsYLWZpva9tGLYMUAy2qSQ2';
 
-  String get currentUserName =>
-      _auth.currentUser?.displayName ?? 'Quratulain';
+  String get currentUserName => _auth.currentUser?.displayName ?? 'Quratulain';
 
   int get totalUnreadCount =>
       threads.fold<int>(0, (sum, t) => sum + t.unreadCount);
 
-  int get joinedChallengesCount =>
-      challenges.where((c) => c.joined).length;
+  int get joinedChallengesCount => challenges.where((c) => c.joined).length;
 
   int get totalChallengeSteps =>
       challenges.fold<int>(0, (sum, c) => sum + c.currentSteps);
@@ -67,56 +67,57 @@ class SocialRealtimeController extends GetxController {
         .orderBy('updatedAt', descending: true)
         .snapshots()
         .listen(
-      (snapshot) {
-        isStreamConnected.value = true;
-        final list =
-            snapshot.docs.map((doc) => ChatThreadModel.fromDoc(doc)).toList();
-        threads.assignAll(list);
+          (snapshot) {
+            isStreamConnected.value = true;
+            final list = snapshot.docs
+                .map((doc) => ChatThreadModel.fromDoc(doc))
+                .toList();
+            threads.assignAll(list);
 
-        if (activeThreadId.value.isEmpty && list.isNotEmpty) {
-          selectThread(list.first.id, list.first.title);
-        }
-      },
-      onError: (_) {
-        isStreamConnected.value = false;
-      },
-    );
+            if (activeThreadId.value.isEmpty && list.isNotEmpty) {
+              selectThread(list.first.id, list.first.title);
+            }
+          },
+          onError: (_) {
+            isStreamConnected.value = false;
+          },
+        );
 
     _challengesSub = _firestore
         .collection('discover_challenges')
         .orderBy('updatedAt', descending: true)
         .snapshots()
         .listen(
-      (snapshot) {
-        isStreamConnected.value = true;
-        challenges.assignAll(
-          snapshot.docs
-              .map((doc) => DiscoverChallengeModel.fromDoc(doc))
-              .toList(),
+          (snapshot) {
+            isStreamConnected.value = true;
+            challenges.assignAll(
+              snapshot.docs
+                  .map((doc) => DiscoverChallengeModel.fromDoc(doc))
+                  .toList(),
+            );
+          },
+          onError: (_) {
+            isStreamConnected.value = false;
+          },
         );
-      },
-      onError: (_) {
-        isStreamConnected.value = false;
-      },
-    );
 
     _membersSub = _firestore
         .collection('discover_members')
         .orderBy('todaySteps', descending: true)
         .snapshots()
         .listen(
-      (snapshot) {
-        isStreamConnected.value = true;
-        members.assignAll(
-          snapshot.docs
-              .map((doc) => DiscoverMemberModel.fromDoc(doc))
-              .toList(),
+          (snapshot) {
+            isStreamConnected.value = true;
+            members.assignAll(
+              snapshot.docs
+                  .map((doc) => DiscoverMemberModel.fromDoc(doc))
+                  .toList(),
+            );
+          },
+          onError: (_) {
+            isStreamConnected.value = false;
+          },
         );
-      },
-      onError: (_) {
-        isStreamConnected.value = false;
-      },
-    );
   }
 
   void selectThread(String threadId, String title) {
@@ -131,15 +132,14 @@ class SocialRealtimeController extends GetxController {
         .orderBy('createdAt', descending: false)
         .snapshots()
         .listen((snapshot) {
-      activeMessages.assignAll(
-        snapshot.docs.map((doc) => ChatMessageModel.fromDoc(doc)).toList(),
-      );
-    });
+          activeMessages.assignAll(
+            snapshot.docs.map((doc) => ChatMessageModel.fromDoc(doc)).toList(),
+          );
+        });
 
-    _firestore.collection('chat_threads').doc(threadId).set(
-      {'unreadCount': 0},
-      SetOptions(merge: true),
-    );
+    _firestore.collection('chat_threads').doc(threadId).set({
+      'unreadCount': 0,
+    }, SetOptions(merge: true));
   }
 
   Future<void> sendMessage(String text) async {
@@ -166,15 +166,11 @@ class SocialRealtimeController extends GetxController {
     final threadRef = _firestore.collection('chat_threads').doc(threadId);
     final batch = _firestore.batch();
     batch.set(threadRef.collection('messages').doc(), message.toMap());
-    batch.set(
-      threadRef,
-      {
-        'lastMessage': clean,
-        'senderName': currentUserName,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    batch.set(threadRef, {
+      'lastMessage': clean,
+      'senderName': currentUserName,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
     await batch.commit();
   }
 
@@ -230,8 +226,10 @@ class SocialRealtimeController extends GetxController {
   Future<void> toggleJoinChallenge(DiscoverChallengeModel item) async {
     final nextJoined = !item.joined;
     final deltaParticipants = nextJoined ? 1 : -1;
-    final nextCount =
-        (item.participantsCount + deltaParticipants).clamp(0, 1000000);
+    final nextCount = (item.participantsCount + deltaParticipants).clamp(
+      0,
+      1000000,
+    );
 
     await _firestore.collection('discover_challenges').doc(item.id).set({
       'joined': nextJoined,
@@ -240,7 +238,10 @@ class SocialRealtimeController extends GetxController {
     }, SetOptions(merge: true));
   }
 
-  Future<void> logChallengeSteps(DiscoverChallengeModel item, int addSteps) async {
+  Future<void> logChallengeSteps(
+    DiscoverChallengeModel item,
+    int addSteps,
+  ) async {
     if (addSteps <= 0) return;
     await _firestore.collection('discover_challenges').doc(item.id).set({
       'currentSteps': FieldValue.increment(addSteps),
@@ -368,9 +369,11 @@ class SocialRealtimeController extends GetxController {
   List<DiscoverChallengeModel> get filteredChallenges {
     final q = searchQuery.value.trim().toLowerCase();
     return challenges.where((c) {
-      final matchesCat = selectedDiscoverFilter.value == 'all' ||
+      final matchesCat =
+          selectedDiscoverFilter.value == 'all' ||
           c.category == selectedDiscoverFilter.value;
-      final matchesQuery = q.isEmpty ||
+      final matchesQuery =
+          q.isEmpty ||
           c.title.toLowerCase().contains(q) ||
           c.description.toLowerCase().contains(q);
       return matchesCat && matchesQuery;

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/social_realtime_controller.dart';
-import '../screens/chat_screen.dart';
-import '../screens/discover_screen.dart';
-import '../screens/social_hub_screen.dart';
+import '../../controller/social_realtime_controller.dart';
+import '../chat/chat_screen.dart';
+import 'discover_screen.dart';
+import 'social_hub_screen.dart';
 
 class SocialNavBar extends StatelessWidget {
   final int currentIndex;

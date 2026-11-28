@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/suite_realtime_controller.dart';
-import '../screens/chat/chats_home_screen.dart';
-import '../screens/chat/stepsapp_feed_screen.dart';
-import '../screens/discover/discover_screen.dart';
+
+import '../../controller/suite_realtime_controller.dart';
+import '../chat/chats_home_screen.dart';
+import '../chat/stepsapp_feed_screen.dart';
+import 'discover_screen.dart';
 
 class SuiteNavigationBar extends StatelessWidget {
   final int currentIndex; // 0 = Discover, 1 = Chats, 2 = Feed

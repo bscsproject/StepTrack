@@ -1,11 +1,11 @@
 import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:step_track/controller/auth_controller.dart';
-import 'package:step_track/core/app_theme.dart';
 import 'package:step_track/views/auth/welcome_auth_screen.dart';
 import 'package:step_track/views/home/home_screen.dart';
 
@@ -38,7 +38,7 @@ class _SplashScreenState extends State<SplashScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         if (!mounted) return;
-        Get.offAll(() =>  WelcomeAuthScreen());
+        Get.offAll(() => WelcomeAuthScreen());
         return;
       }
 
@@ -64,12 +64,12 @@ class _SplashScreenState extends State<SplashScreen> {
       } else if (Get.isRegistered<AuthController>()) {
         Get.find<AuthController>().startOnboardingFlow();
       } else {
-        Get.offAll(() =>  WelcomeAuthScreen());
+        Get.offAll(() => WelcomeAuthScreen());
       }
     } catch (e) {
       debugPrint('Splash routing error: $e');
       if (!mounted) return;
-      Get.offAll(() =>  WelcomeAuthScreen());
+      Get.offAll(() => WelcomeAuthScreen());
     } finally {
       _isRouting = false;
     }
@@ -91,11 +91,7 @@ class _SplashScreenState extends State<SplashScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF171B38),
-              Color(0xFF0D1020),
-              Color(0xFF10172B),
-            ],
+            colors: [Color(0xFF171B38), Color(0xFF0D1020), Color(0xFF10172B)],
           ),
         ),
         child: SafeArea(
@@ -139,10 +135,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 ShaderMask(
                   shaderCallback: (bounds) {
                     return const LinearGradient(
-                      colors: [
-                        Color(0xFF8265FF),
-                        Color(0xFF35B9FF),
-                      ],
+                      colors: [Color(0xFF8265FF), Color(0xFF35B9FF)],
                     ).createShader(bounds);
                   },
                   child: const Text(

@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/Users/amc/StepTrack/windows"
+  "cmake.sourceDirectory": "C:/Users/amc/StepTrack/windows",
+  "dart.flutterSdkPath": ".fvm/versions/3.50.1"
 }

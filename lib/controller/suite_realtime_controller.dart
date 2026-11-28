@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
-import '../models/suite_models.dart';
+import '../model/suite_models.dart';
 
 class SuiteRealtimeController extends GetxController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
