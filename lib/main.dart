@@ -5,10 +5,13 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:step_track/controller/auth_controller.dart';
 import 'package:step_track/controller/social_realtime_controller.dart';
+import 'package:step_track/controller/step_track_hub_controller.dart';
 import 'package:step_track/controller/suite_realtime_controller.dart';
 import 'package:step_track/core/app_theme.dart';
 import 'package:step_track/firebase_options.dart';
 import 'package:step_track/model/groups_modal_screen.dart';
+import 'package:step_track/routes/app_routes.dart';
+import 'package:step_track/views/account/profile_detail_screen.dart';
 import 'package:step_track/views/auth/create_profile_screen.dart';
 import 'package:step_track/views/auth/login_screen.dart';
 import 'package:step_track/views/auth/signup_screen.dart';
@@ -24,6 +27,13 @@ import 'package:step_track/views/discover/social_hub_screen.dart';
 import 'package:step_track/views/home/create_challenge_screen.dart';
 import 'package:step_track/views/home/home_screen.dart';
 import 'package:step_track/views/home/weight_loss_plan_screen.dart';
+import 'package:step_track/views/settings/body_measurements_screen.dart';
+import 'package:step_track/views/settings/full_settings_screen.dart';
+import 'package:step_track/views/settings/google_fit_sync_screen.dart';
+import 'package:step_track/views/settings/notifications_settings_screen.dart';
+import 'package:step_track/views/settings/privacy_settings_screen.dart';
+import 'package:step_track/views/settings/pro_upgrade_screen.dart';
+import 'package:step_track/views/settings/setup_step_counter_flow.dart';
 import 'package:step_track/views/splash_screen.dart';
 
 Future<void> main() async {
@@ -61,6 +71,12 @@ Future<void> main() async {
     if (!Get.isRegistered<SuiteRealtimeController>()) {
       Get.put<SuiteRealtimeController>(
         SuiteRealtimeController(),
+        permanent: true,
+      );
+    }
+    if (!Get.isRegistered<StepTrackHubController>()) {
+      Get.put<StepTrackHubController>(
+        StepTrackHubController(),
         permanent: true,
       );
     }
@@ -144,6 +160,11 @@ class StepTrackApp extends StatelessWidget {
           transition: Transition.fadeIn,
         ),
         GetPage(
+          name: DiscoverScreen.routeName,
+          page: () => const DiscoverScreen(),
+          transition: Transition.fadeIn,
+        ),
+        GetPage(
           name: '/create-challenge',
           page: () => const CreateChallengeScreen(),
         ),
@@ -152,7 +173,15 @@ class StepTrackApp extends StatelessWidget {
           page: () => const GroupsModalScreen(),
         ),
         GetPage(
+          name: GroupsModalScreen.routeName,
+          page: () => const GroupsModalScreen(),
+        ),
+        GetPage(
           name: '/previous-challenges',
+          page: () => const PreviousChallengesScreen(),
+        ),
+        GetPage(
+          name: PreviousChallengesScreen.routeName,
           page: () => const PreviousChallengesScreen(),
         ),
         GetPage(
@@ -164,12 +193,56 @@ class StepTrackApp extends StatelessWidget {
           page: () => const ChatsHomeScreen(),
         ),
         GetPage(
+          name: ChatsHomeScreen.routeName,
+          page: () => const ChatsHomeScreen(),
+        ),
+        GetPage(
           name: '/stepsapp-feed',
+          page: () => const StepsAppFeedScreen(),
+        ),
+        GetPage(
+          name: StepsAppFeedScreen.routeName,
           page: () => const StepsAppFeedScreen(),
         ),
         GetPage(
           name: '/thread-conversation',
           page: () => const ThreadConversationScreen(),
+        ),
+        GetPage(
+          name: ThreadConversationScreen.routeName,
+          page: () => const ThreadConversationScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.settings,
+          page: () => const FullSettingsScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.profile,
+          page: () => const ProfileDetailScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.setupStepCounter,
+          page: () => const SetupStepCounterFlow(),
+        ),
+        GetPage(
+          name: AppRoutes.bodyMeasurements,
+          page: () => const BodyMeasurementsScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.notifications,
+          page: () => const NotificationsSettingsScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.googleFitSync,
+          page: () => const GoogleFitSyncScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.privacySettings,
+          page: () => const PrivacySettingsScreen(),
+        ),
+        GetPage(
+          name: AppRoutes.proUpgrade,
+          page: () => const ProUpgradeScreen(),
         ),
       ],
     );

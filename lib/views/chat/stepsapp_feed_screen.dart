@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import '../../controllers/suite_realtime_controller.dart';
-import '../../widgets/suite_navigation_bar.dart';
+import 'package:step_track/controller/suite_realtime_controller.dart';
+import 'package:step_track/views/discover/suite_navigation_bar.dart';
 
 class StepsAppFeedScreen extends StatefulWidget {
   static const String routeName = '/feed-suite';

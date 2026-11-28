@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../models/social_models.dart';
+import '../model/social_models.dart';
 
 class SocialRealtimeController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -31,11 +31,26 @@ class SocialRealtimeController extends GetxController {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _challengesSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _membersSub;
 
-  String get currentUserId =>
-      _auth.currentUser?.uid ?? '50g9eQsYLWZpva9tGLYMUAy2qSQ2';
+  String get currentUserId => _auth.currentUser?.uid ?? '';
 
-  String get currentUserName =>
-      _auth.currentUser?.displayName ?? 'Quratulain';
+  String get currentUserName {
+    final user = _auth.currentUser;
+    if (user == null) return 'StepTrack User';
+    final display = user.displayName?.trim() ?? '';
+    if (display.isNotEmpty) return display;
+    final email = user.email?.trim() ?? '';
+    return email.isNotEmpty ? email.split('@').first : 'StepTrack User';
+  }
+
+  bool _ensureAuthenticated() {
+    if (_auth.currentUser != null) return true;
+    Get.snackbar(
+      'Sign In Required',
+      'Please sign in to perform this action.',
+      snackPosition: SnackPosition.BOTTOM,
+    );
+    return false;
+  }
 
   int get totalUnreadCount =>
       threads.fold<int>(0, (sum, t) => sum + t.unreadCount);
@@ -143,6 +158,7 @@ class SocialRealtimeController extends GetxController {
   }
 
   Future<void> sendMessage(String text) async {
+    if (!_ensureAuthenticated()) return;
     final clean = text.trim();
     if (clean.isEmpty) return;
 
@@ -183,6 +199,7 @@ class SocialRealtimeController extends GetxController {
     String initialMessage = 'Joined the step conversation!',
     bool isGroup = true,
   }) async {
+    if (!_ensureAuthenticated()) return '';
     final cleanTitle = title.trim().isEmpty ? 'New Step Chat' : title.trim();
     final docRef = _firestore.collection('chat_threads').doc();
     final batch = _firestore.batch();
@@ -214,6 +231,7 @@ class SocialRealtimeController extends GetxController {
     required String description,
     required int targetSteps,
   }) async {
+    if (!_ensureAuthenticated()) return;
     final docRef = _firestore.collection('discover_challenges').doc();
     await docRef.set({
       'title': title.trim(),
@@ -228,6 +246,7 @@ class SocialRealtimeController extends GetxController {
   }
 
   Future<void> toggleJoinChallenge(DiscoverChallengeModel item) async {
+    if (!_ensureAuthenticated()) return;
     final nextJoined = !item.joined;
     final deltaParticipants = nextJoined ? 1 : -1;
     final nextCount =
@@ -241,6 +260,7 @@ class SocialRealtimeController extends GetxController {
   }
 
   Future<void> logChallengeSteps(DiscoverChallengeModel item, int addSteps) async {
+    if (!_ensureAuthenticated()) return;
     if (addSteps <= 0) return;
     await _firestore.collection('discover_challenges').doc(item.id).set({
       'currentSteps': FieldValue.increment(addSteps),
@@ -250,6 +270,7 @@ class SocialRealtimeController extends GetxController {
   }
 
   Future<void> toggleConnectMember(DiscoverMemberModel member) async {
+    if (!_ensureAuthenticated()) return;
     await _firestore.collection('discover_members').doc(member.id).set({
       'isConnected': !member.isConnected,
       'updatedAt': FieldValue.serverTimestamp(),

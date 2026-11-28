@@ -49,9 +49,14 @@ class AuthController extends GetxController {
     selectedColorIndex.value = next;
   }
 
-  Future<void> _setLocalOnboardingCompleted(bool value) async {
+  Future<void> _setLocalOnboardingCompleted(bool value, {String? uid}) async {
     if (Hive.isBoxOpen('steptrack_auth_box')) {
-      await Hive.box('steptrack_auth_box').put('isOnboardingCompleted', value);
+      final box = Hive.box('steptrack_auth_box');
+      await box.put('isOnboardingCompleted', value);
+      final resolvedUid = uid ?? FirebaseAuth.instance.currentUser?.uid;
+      if (resolvedUid != null && resolvedUid.isNotEmpty) {
+        await box.put('onboarding_done_$resolvedUid', value);
+      }
     }
   }
 

@@ -16,7 +16,6 @@ import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:step_track/model/step_track_hub_model.dart';
-import 'package:step_track/models/step_track_hub_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class StepTrackHubController extends GetxController {
@@ -57,7 +56,7 @@ class StepTrackHubController extends GetxController {
   final RxBool isRequestingBattery = false.obs;
 
   StreamSubscription<User?>? _authSub;
-  StreamSubscription<DocumentSnapshot>>? _userDocSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userDocSub;
   StreamSubscription<StepCount>? _pedometerSub;
   int? _lastSensorBaseline;
 
@@ -452,12 +451,12 @@ class StepTrackHubController extends GetxController {
         'preferences': prefs.value.toMap(),
       });
       final bytes = Uint8List.fromList(utf8.encode(payload));
-      final savedPath = await FilePicker.platform.saveFile(
+      final savedUri = await FilePicker.saveFile(
         dialogTitle: 'Export StepTrack Data',
         fileName: 'steptrack_backup_${_dateKey(DateTime.now())}.json',
         bytes: bytes,
       );
-      if (savedPath != null) {
+      if (savedUri != null) {
         Get.snackbar('Export Complete', 'Data exported successfully.');
       }
     } catch (e) {
@@ -468,24 +467,32 @@ class StepTrackHubController extends GetxController {
 
   Future<void> importStepDataFromDevice() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final pickedFile = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
-      if (result == null || result.files.single.path == null) return;
+      if (pickedFile == null || pickedFile.path == null) return;
 
-      final content = await File(result.files.single.path!).readAsString();
+      final file = File(pickedFile.path!);
+      if (await file.length() > 5 * 1024 * 1024) {
+        Get.snackbar('Import Failed', 'Backup file exceeds 5 MB limit.');
+        return;
+      }
+
+      final content = await file.readAsString();
       final decoded = jsonDecode(content);
       if (decoded is! Map) return;
 
+      final dateKeyPattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
       final rawMap = decoded['stepsByDay'];
       if (rawMap is Map) {
         final merged = Map<String, int>.from(stepsByDay);
         for (final entry in rawMap.entries) {
+          final key = entry.key.toString();
+          if (!dateKeyPattern.hasMatch(key)) continue;
           final v = entry.value;
           final steps = v is num ? v.toInt() : int.tryParse(v.toString());
-          if (steps != null && steps >= 0) {
-            final key = entry.key.toString();
+          if (steps != null && steps >= 0 && steps <= 200000) {
             if (steps > (merged[key] ?? 0)) {
               merged[key] = steps;
             }
@@ -564,6 +571,10 @@ class StepTrackHubController extends GetxController {
   }
 
   Future<void> openUri(Uri uri) async {
+    if (uri.scheme != 'https' && uri.scheme != 'mailto') {
+      Get.snackbar('Blocked Link', 'Unsupported URL scheme: ${uri.scheme}');
+      return;
+    }
     try {
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok) {

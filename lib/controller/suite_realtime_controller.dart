@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
-import '../models/suite_models.dart';
+import '../model/suite_models.dart';
 
 class SuiteRealtimeController extends GetxController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -29,11 +29,26 @@ class SuiteRealtimeController extends GetxController {
   StreamSubscription? _messagesSub;
   StreamSubscription? _feedSub;
 
-  String get currentUid =>
-      _auth.currentUser?.uid ?? '50g9eQsYLWZpva9tGLYMUAy2qSQ2';
+  String get currentUid => _auth.currentUser?.uid ?? '';
 
-  String get currentUserName =>
-      _auth.currentUser?.displayName ?? 'Quratulain';
+  String get currentUserName {
+    final user = _auth.currentUser;
+    if (user == null) return 'StepTrack User';
+    final display = user.displayName?.trim() ?? '';
+    if (display.isNotEmpty) return display;
+    final email = user.email?.trim() ?? '';
+    return email.isNotEmpty ? email.split('@').first : 'StepTrack User';
+  }
+
+  bool _ensureAuthenticated() {
+    if (_auth.currentUser != null) return true;
+    Get.snackbar(
+      'Sign In Required',
+      'Please sign in to perform this action.',
+      snackPosition: SnackPosition.BOTTOM,
+    );
+    return false;
+  }
 
   int get totalUnread =>
       threads.fold<int>(0, (acc, item) => acc + item.unreadCount);
@@ -166,6 +181,7 @@ class SuiteRealtimeController extends GetxController {
   }
 
   Future<void> sendThreadMessage(String text) async {
+    if (!_ensureAuthenticated()) return;
     final clean = text.trim();
     if (clean.isEmpty) return;
 
@@ -203,6 +219,7 @@ class SuiteRealtimeController extends GetxController {
   }
 
   Future<void> createNewThread(String title, String firstMessage) async {
+    if (!_ensureAuthenticated()) return;
     final cleanTitle = title.trim().isEmpty ? 'Step Club Chat' : title.trim();
     final cleanMsg =
         firstMessage.trim().isEmpty ? 'Hi team!' : firstMessage.trim();
@@ -232,6 +249,7 @@ class SuiteRealtimeController extends GetxController {
     required String description,
     required int targetSteps,
   }) async {
+    if (!_ensureAuthenticated()) return;
     await _db.collection('discover_challenges').add({
       'title': title.trim(),
       'category': category,
@@ -246,6 +264,7 @@ class SuiteRealtimeController extends GetxController {
   }
 
   Future<void> toggleChallengeJoin(ChallengeItem item) async {
+    if (!_ensureAuthenticated()) return;
     final nextJoined = !item.joined;
     final nextParticipants =
         (item.participants + (nextJoined ? 1 : -1)).clamp(0, 999999);
@@ -257,6 +276,7 @@ class SuiteRealtimeController extends GetxController {
   }
 
   Future<void> incrementChallengeSteps(ChallengeItem item, int steps) async {
+    if (!_ensureAuthenticated() || steps <= 0) return;
     await _db.collection('discover_challenges').doc(item.id).set({
       'currentSteps': FieldValue.increment(steps),
       'joined': true,
@@ -265,6 +285,7 @@ class SuiteRealtimeController extends GetxController {
   }
 
   Future<void> toggleGroupJoin(GroupItem group) async {
+    if (!_ensureAuthenticated()) return;
     final nextJoined = !group.isJoined;
     final nextCount =
         (group.membersCount + (nextJoined ? 1 : -1)).clamp(0, 999999);
@@ -276,6 +297,7 @@ class SuiteRealtimeController extends GetxController {
   }
 
   Future<void> createGroup(String name, String city) async {
+    if (!_ensureAuthenticated()) return;
     await _db.collection('discover_groups').add({
       'name': name.trim(),
       'city': city.trim().isEmpty ? 'Sahiwal' : city.trim(),
@@ -287,6 +309,7 @@ class SuiteRealtimeController extends GetxController {
   }
 
   Future<void> toggleConnectPerson(SuggestedMemberItem person) async {
+    if (!_ensureAuthenticated()) return;
     await _db.collection('discover_members').doc(person.id).set({
       'connected': !person.connected,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -294,6 +317,7 @@ class SuiteRealtimeController extends GetxController {
   }
 
   Future<void> publishFeedPost(String content, int stepsSnapshot) async {
+    if (!_ensureAuthenticated()) return;
     final clean = content.trim();
     if (clean.isEmpty) return;
     await _db.collection('stepsapp_feed').add({
@@ -308,6 +332,7 @@ class SuiteRealtimeController extends GetxController {
   }
 
   Future<void> toggleLikePost(FeedPostItem post) async {
+    if (!_ensureAuthenticated()) return;
     final nextLiked = !post.likedByMe;
     await _db.collection('stepsapp_feed').doc(post.id).set({
       'likedByMe': nextLiked,

@@ -5,7 +5,6 @@ import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:step_track/controller/auth_controller.dart';
-import 'package:step_track/core/app_theme.dart';
 import 'package:step_track/views/auth/welcome_auth_screen.dart';
 import 'package:step_track/views/home/home_screen.dart';
 
