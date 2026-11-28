@@ -36,8 +36,10 @@ class _MotionSensorOnboardingScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_continueIfPermissionIsGranted());
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) {
+        unawaited(_continueIfPermissionIsGranted());
+      }
     });
   }
 
@@ -66,9 +68,16 @@ class _MotionSensorOnboardingScreenState
   void _continueToNextStep({required bool isGranted}) {
     if (!mounted || _hasContinued) return;
 
+    _hasContinued = true;
     widget.onPermissionResult?.call(isGranted);
     widget.onContinue?.call();
-    _hasContinued = true;
+
+    // If navigation was deferred or ignored during a transition, unlock button.
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        _hasContinued = false;
+      }
+    });
   }
 
   Future<void> _onAllowButtonPressed() async {
@@ -78,12 +87,15 @@ class _MotionSensorOnboardingScreenState
     bool isGranted = false;
 
     try {
-      PermissionStatus status = await Permission.activityRecognition.status;
+      PermissionStatus status = await Permission.activityRecognition.status
+          .timeout(const Duration(seconds: 8));
 
       if (!status.isGranted &&
           !status.isLimited &&
           !status.isPermanentlyDenied) {
-        status = await Permission.activityRecognition.request();
+        status = await Permission.activityRecognition
+            .request()
+            .timeout(const Duration(seconds: 15));
       }
 
       isGranted = status.isGranted || status.isLimited;
@@ -290,7 +302,23 @@ class _MotionSensorOnboardingScreenState
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 8),
+
+              TextButton(
+                onPressed: _isRequesting
+                    ? null
+                    : () => _continueToNextStep(isGranted: false),
+                child: const Text(
+                  'Skip for now',
+                  style: TextStyle(
+                    color: Color(0xFF7D858E),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 6),
             ],
           ),
         ),
